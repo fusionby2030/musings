@@ -1,0 +1,533 @@
+---
+title: "How does data become the model?"
+format:
+  html:
+    code-fold: true
+    page-layout: full
+jupyter: python3
+execute: 
+  echo: false
+  warning: false
+  cache: true
+fig-width: 10 
+fig-height: 10
+---
+
+```{python}
+
+import pandas as pd 
+import numpy as np 
+import matplotlib.pyplot as plt 
+from matplotlib.patches import Patch
+import os 
+from sklearn.metrics import mean_squared_error
+from verstack.stratified_continuous_split import scsplit
+
+rel_dir = '/home/kitadam/ENR_Sven/supervised_learning_jetpdb/data/jet-all-full.csv'
+jet_pdb_all = pd.read_csv(rel_dir)
+jet_pdb = jet_pdb_all[(jet_pdb_all['elongation'] != -1) & (jet_pdb_all['Zeff'] != -1)]
+jet_pdb['P_NBI(MW)'][jet_pdb['P_NBI(MW)'] < 0] = 0.0 
+jet_pdb['gasflowrateofmainspecies10^22(e/s)'][jet_pdb['gasflowrateofmainspecies10^22(e/s)'] < 0] = 0.0 
+jet_pdb.loc[:, 'divertorconfiguration'] = jet_pdb.loc[:, 'divertorconfiguration'].astype('category')
+jet_pdb.loc[:, 'divertorconfiguration'] = jet_pdb.loc[:, 'divertorconfiguration'].cat.codes
+jet_pdb['wall'] = [int(i) for i in (jet_pdb['shot'] < 80000).to_list()]
+global_cols = ['BetaN(MHD)', 'Zeff']
+info_cols = ['shot', 't1', 't2']
+ped_cols = ['nepedheight10^19(m^-3)', 'error_nepedheight10^19(m^-3)']
+mp_cols = ['Ip(MA)', 'B(T)', 'a(m)', 'q95','averagetriangularity', 'plasmavolume(m^3)','elongation','P_NBI(MW)', 'P_ICRH(MW)', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)',   'gasflowrateofmainspecies10^22(e/s)', ]
+cat_cols = ['FLAG:Kicks', 'FLAG:RMP', 'FLAG:pellets', 'divertorconfiguration', 'Atomicnumberofseededimpurity']
+flags = ['FLAG:DEUTERIUM', 'FLAG:HYDROGEN', 'FLAG:H/Dmix', 'FLAG:HeJET-C', 'FLAG:Seeding', 'FLAG:Kicks', 'FLAG:RMP', 'FLAG:pellets', 'FLAG:HRTSdatavalidated', 'divertorconfiguration', 'Atomicnumberofseededimpurity',]
+if os.getenv('PLOTSTYLE') is not None: 
+    plt.style.use(os.getenv('PLOTSTYLE'))
+RED = "#dd3015"
+GREEN = "#489A8C"
+DARK = "#1C2C22"
+GOLD = "#F87D16"
+WHITE = "#FFFFFF"
+BLUE = "#2E6C96"
+
+```
+# Splitting of the dataset into subsets
+
+1. Shot number and or wall type
+    - Artificially create the idea of gathering more data via upgrades to the device or knowledge base 
+
+```{python}
+
+fig = plt.figure()
+plt.scatter(jet_pdb['shot'], 1e19*jet_pdb[ped_cols[0]], color=RED, edgecolors=(0, 0, 0))
+plt.axvline(81000, color=DARK, ls='--')
+plt.ylabel('JET PDB $n_e^{ped}$ (m$^{-3}$)')
+plt.xlabel('JET Shot Number')
+plt.annotate('JET-C', xy=(75500, 1.2e20))
+plt.annotate('JET-ILW', xy=(87500, 1.2e20))
+plt.show()
+```
+We can preform regression on the dataset with the following splits: 
+
+1. Both JET-C and JET-ILW
+2. JET-C 
+3. JET-ILW 
+
+And we can compare performances on all of the above by predicting against 
+
+1. JET-ILW 
+2. JET-C 
+```{python}
+jet_c = jet_pdb[jet_pdb['shot'] < 81000]
+jet_ilw = jet_pdb[jet_pdb['shot'] > 81000]
+lorenzo_inputs = ['Ip(MA)', 'averagetriangularity', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)', 'gasflowrateofmainspecies10^22(e/s)', 'Meff']
+inputs = ['Ip(MA)', 'B(T)', 'a(m)', 'P_NBI(MW)', 'P_ICRH(MW)', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)', 'plasmavolume(m^3)', 'q95', 'gasflowrateofmainspecies10^22(e/s)', 'elongation', 'averagetriangularity', 'FLAG:Kicks', 'FLAG:RMP', 'FLAG:pellets', 'Atomicnumberofseededimpurity', 'divertorconfiguration', 'wall']
+# inputs = ['Ip(MA)', 'B(T)', 'a(m)', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)', 'plasmavolume(m^3)', 'q95', 'gasflowrateofmainspecies10^22(e/s)', 'elongation', 'averagetriangularity']
+
+targets = 'nepedheight10^19(m^-3)'
+
+# X_all, y_all = jet_pdb[lorenzo_inputs].to_numpy(), jet_pdb[targets].to_numpy()
+# X_c, y_c = jet_c[lorenzo_inputs].to_numpy(), jet_c[targets].to_numpy()
+# X_ilw, y_ilw = jet_ilw[lorenzo_inputs].to_numpy(), jet_ilw[targets].to_numpy()
+
+# X_all, y_all = jet_pdb[lorenzo_inputs], jet_pdb[targets]
+# X_c, y_c = jet_c[lorenzo_inputs], jet_c[targets]
+# X_ilw, y_ilw = jet_ilw[lorenzo_inputs], jet_ilw[targets]
+import random 
+random.seed(42)
+shuffled_idxs = random.sample(jet_c.index.to_list(), k=len(jet_c))
+jet_c_train, jet_c_test = jet_c.loc[shuffled_idxs[:-50]], jet_c.loc[shuffled_idxs[-50:]]
+
+shuffled_idxs = random.sample(jet_ilw.index.to_list(), k=len(jet_ilw))
+jet_ilw_train, jet_ilw_test = jet_ilw.loc[shuffled_idxs[:-200]], jet_ilw.loc[shuffled_idxs[-200:]]
+
+```
+
+
+```{python}
+
+# Create a Figure, which doesn't have to be square.
+fig = plt.figure(layout='constrained', figsize=(10, 10), dpi=250)
+gs = fig.add_gridspec(2, 2,  width_ratios=(4, 1), height_ratios=(1, 4),
+                      left=0.1, right=0.9, bottom=0.1, top=0.9,
+                      wspace=0.05, hspace=0.05)
+ax = fig.add_subplot(gs[1, 0])
+
+# ax.scatter(jet_pdb['shot'], 1e19*jet_pdb[targets], color=RED, edgecolors=(0, 0, 0))
+ax.scatter(jet_c_train['shot'], 1e19*jet_c_train[targets], color=RED, edgecolors=(0, 0, 0))
+ax.scatter(jet_c_test['shot'], 1e19*jet_c_test[targets], color=WHITE, edgecolors=(0, 0, 0))
+ax.scatter(jet_ilw_train['shot'], 1e19*jet_ilw_train[targets], color=GREEN, edgecolors=(0, 0, 0))
+ax.scatter(jet_ilw_test['shot'], 1e19*jet_ilw_test[targets], color=GOLD, edgecolors=(0, 0, 0))
+
+ax_histy = fig.add_subplot(gs[1, 1], sharey=ax)
+ax_histy.tick_params(axis="y", labelleft=False)
+ax_histy.hist([1e19*jet_c_train[targets], 1e19*jet_c_test[targets], 1e19*jet_ilw_train[targets], 1e19*jet_ilw_test[targets]], bins=50, orientation='horizontal', color=[RED, WHITE, GREEN, GOLD], stacked=True)
+# ax_histy.hist(1e19*jet_pdb[targets], bins=50, orientation='horizontal', color=RED)
+
+ax.axvline(81000, color=DARK, ls='--')
+ax.set_ylabel('JET PDB $n_e^{ped}$ (m$^{-3}$)')
+ax.set_xlabel('JET Shot Number')
+ax.annotate('JET-C', xy=(75500, 1.2e20))
+ax.annotate('JET-ILW', xy=(87500, 1.2e20))
+
+plt.show()
+```
+
+
+```{python}
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+import models
+import xgboost as xgb 
+from pytorch_tabnet.tab_model import TabNetRegressor
+```
+
+while keeping the input parameters the same: 
+
+- Lorenzo? 
+
+```{python}
+
+X_train_c, y_train_c = jet_c_train[inputs], jet_c_train[targets]
+X_test_c, y_test_c = jet_c_test[inputs], jet_c_test[targets]
+
+X_train_ilw, y_train_ilw = jet_ilw_train[inputs], jet_ilw_train[targets]
+X_test_ilw, y_test_ilw = jet_ilw_test[inputs], jet_ilw_test[targets]
+
+reg_c_lin = LinearRegression().fit(X_train_c, y_train_c)
+c_lin_res_c = mean_squared_error(y_test_c, reg_c_lin.predict(X_test_c), squared=False)
+c_lin_res_ilw = mean_squared_error(y_test_ilw, reg_c_lin.predict(X_test_ilw), squared=False)
+
+
+dtrain = xgb.DMatrix(X_train_c, label=y_train_c)
+dtest_c = xgb.DMatrix(X_test_c)
+dtest_ilw = xgb.DMatrix(X_test_ilw)
+# reg_c_tree = GradientBoostingRegressor().fit(X_train_c, y_train_c)
+params = dict(max_depth=11, learning_rate=0.1, objective='reg:squarederror')
+bst_c = xgb.train(params, dtrain, 100, [(dtrain, 'train')], verbose_eval=False)
+
+c_tree_res_c = mean_squared_error(y_test_c, bst_c.predict(dtest_c), squared=False)
+c_tree_res_ilw = mean_squared_error(y_test_ilw, bst_c.predict(dtest_ilw), squared=False)
+
+
+```
+
+```{python}
+
+X_train_c, y_train_c = jet_c_train[inputs], jet_c_train[targets]
+X_test_c, y_test_c = jet_c_test[inputs], jet_c_test[targets]
+
+X_train_ilw, y_train_ilw = jet_ilw_train[inputs], jet_ilw_train[targets]
+X_test_ilw, y_test_ilw = jet_ilw_test[inputs], jet_ilw_test[targets]
+
+X_train_both, y_train_both = pd.concat([X_train_ilw, X_train_c]), pd.concat([y_train_ilw, y_train_c])
+
+reg_cilw_lin = LinearRegression().fit(X_train_both, y_train_both)
+cilw_lin_res_c = mean_squared_error(y_test_c, reg_cilw_lin.predict(X_test_c), squared=False)
+cilw_lin_res_ilw = mean_squared_error(y_test_ilw, reg_cilw_lin.predict(X_test_ilw), squared=False)
+
+dtrain = xgb.DMatrix(X_train_both, label=y_train_both)
+dtest_c = xgb.DMatrix(X_test_c)
+dtest_ilw = xgb.DMatrix(X_test_ilw)
+# reg_c_tree = GradientBoostingRegressor().fit(X_train_c, y_train_c)
+params = dict(max_depth=11, learning_rate=0.1, objective='reg:squarederror')
+bst_cilw = xgb.train(params, dtrain, 100, [(dtrain, 'train')], verbose_eval=False)
+
+cilw_tree_res_c = mean_squared_error(y_test_c, bst_cilw.predict(dtest_c), squared=False)
+cilw_tree_res_ilw = mean_squared_error(y_test_ilw, bst_cilw.predict(dtest_ilw), squared=False)
+```
+
+```{python}
+#| eval: false
+print('Train on JET-C')
+print('C    LIN: {:.4}   TREE: {:.4}'.format(c_lin_res_c, c_tree_res_c))
+print('ILW  LIN: {:.4}   TREE: {:.4}'.format(c_lin_res_ilw, c_tree_res_ilw))
+
+print('Train on JET-C & ILW')
+print('C    LIN: {:.4}   TREE: {:.4}'.format(cilw_lin_res_c, cilw_tree_res_c))
+print('ILW  LIN: {:.4}   TREE: {:.4}'.format(cilw_lin_res_ilw, cilw_tree_res_ilw))
+
+fig = plt.figure(figsize=(7.5, 7.5), dpi=100)
+
+plt.bar([-0.25, 0.25, 0.75, 1.25], [c_lin_res_c, cilw_lin_res_c, c_tree_res_c, cilw_tree_res_c], width=0.4, color=[RED, GREEN, RED, GREEN], edgecolor=(0, 0, 0))
+plt.xticks([0, 1], ['Lin. Reg.', 'XGBoost'], rotation=0)
+
+
+
+legend_elements = [Patch(facecolor=RED, edgecolor='black', label='JET-C'), Patch(facecolor=GREEN, edgecolor='black',label='JET-C & JET-ILW')]
+
+# Create the figure
+plt.legend(handles=legend_elements, title='Dataset used')
+plt.grid()
+plt.ylabel('RMSE on JET-C Subset')
+plt.show()
+```
+
+```{python}
+
+lin_results_c, lin_results_cilw, xgboost_results_c, xgboost_results_cilw = [], [], [], []
+lin_results_ilwc, xgboost_results_ilwc, lin_results_ilw, xgboost_results_ilw = [], [], [], []
+for seed in range(15):
+  random.seed(seed)
+  shuffled_idxs = random.sample(jet_c.index.to_list(), k=len(jet_c))
+  jet_c_train, jet_c_test = jet_c.loc[shuffled_idxs[:-50]], jet_c.loc[shuffled_idxs[-50:]]
+
+  shuffled_idxs = random.sample(jet_ilw.index.to_list(), k=len(jet_ilw))
+  jet_ilw_train, jet_ilw_test = jet_ilw.loc[shuffled_idxs[:-200]], jet_ilw.loc[shuffled_idxs[-200:]]
+
+  X_train_c, y_train_c = jet_c_train[inputs], jet_c_train[targets]
+  X_test_c, y_test_c = jet_c_test[inputs], jet_c_test[targets]
+
+  X_train_ilw, y_train_ilw = jet_ilw_train[inputs], jet_ilw_train[targets]
+  X_test_ilw, y_test_ilw = jet_ilw_test[inputs], jet_ilw_test[targets]
+
+  reg_c_lin = LinearRegression().fit(X_train_c, y_train_c)
+  c_lin_res_c = mean_squared_error(y_test_c, reg_c_lin.predict(X_test_c), squared=False)
+  c_lin_res_ilw = mean_squared_error(y_test_ilw, reg_c_lin.predict(X_test_ilw), squared=False)
+
+  dtrain = xgb.DMatrix(X_train_c, label=y_train_c)
+  dtest_c = xgb.DMatrix(X_test_c)
+  dtest_ilw = xgb.DMatrix(X_test_ilw)
+  params = dict(max_depth=11, learning_rate=0.1, objective='reg:squarederror')
+  bst_c = xgb.train(params, dtrain, 100, [(dtrain, 'train')], verbose_eval=False)
+
+  c_tree_res_c = mean_squared_error(y_test_c, bst_c.predict(dtest_c), squared=False)
+  c_tree_res_ilw = mean_squared_error(y_test_ilw, bst_c.predict(dtest_ilw), squared=False)
+  
+  lin_results_c.append(c_lin_res_c)
+  xgboost_results_c.append(c_tree_res_c)
+
+  lin_results_ilwc.append(c_lin_res_ilw)
+  xgboost_results_ilwc.append(c_tree_res_ilw)
+
+  X_train_both, y_train_both = pd.concat([X_train_ilw, X_train_c]), pd.concat([y_train_ilw, y_train_c])
+
+  reg_cilw_lin = LinearRegression().fit(X_train_both, y_train_both)
+  cilw_lin_res_c = mean_squared_error(y_test_c, reg_cilw_lin.predict(X_test_c), squared=False)
+  cilw_lin_res_ilw = mean_squared_error(y_test_ilw, reg_cilw_lin.predict(X_test_ilw), squared=False)
+
+  dtrain = xgb.DMatrix(X_train_both, label=y_train_both)
+  dtest_c = xgb.DMatrix(X_test_c)
+  dtest_ilw = xgb.DMatrix(X_test_ilw)
+  # reg_c_tree = GradientBoostingRegressor().fit(X_train_c, y_train_c)
+  params = dict(max_depth=11, learning_rate=0.1, objective='reg:squarederror')
+  bst_cilw = xgb.train(params, dtrain, 100, [(dtrain, 'train')], verbose_eval=False)
+
+  cilw_tree_res_c = mean_squared_error(y_test_c, bst_cilw.predict(dtest_c), squared=False)
+  cilw_tree_res_ilw = mean_squared_error(y_test_ilw, bst_cilw.predict(dtest_ilw), squared=False)
+
+  # tabnet_cilw = TabNetRegressor()
+  # tabnet_cilw.fit(X_train_both.values, y_train_both.values.reshape(-1, 1))
+  # cilw_tabnet_res_c = mean_squared_error(y_test_c.values, tabnet_cilw.predict(X_test_c.values), squared=False)
+  
+  # tabnet_results_cilw.append(cilw_tabnet_res_c)
+  lin_results_cilw.append(cilw_lin_res_c)
+  xgboost_results_cilw.append(cilw_tree_res_c)
+  lin_results_ilw.append(cilw_lin_res_ilw)
+  xgboost_results_ilw.append(cilw_tree_res_ilw)
+```
+
+```{python}
+
+fig = plt.figure(figsize=(10, 10), dpi=300)
+
+bbox_plot = plt.boxplot([lin_results_c, lin_results_cilw, xgboost_results_c, xgboost_results_cilw], vert=True, patch_artist=True, medianprops = dict(linestyle='-', linewidth=2.5, color=WHITE))
+
+colors = [RED, GREEN, RED, GREEN]
+for patch, color in zip(bbox_plot['boxes'], colors):
+  patch.set_facecolor(color)
+plt.xticks([1.5, 3.5], ['Lin. Reg.', 'XGBoost'])
+plt.ylabel('RMSE on JET-C Subset')
+legend_elements = [Patch(facecolor=RED, edgecolor='black', label='JET-C'), Patch(facecolor=GREEN, edgecolor='black',label='JET-C & JET-ILW')]
+
+# Create the figure
+plt.legend(handles=legend_elements, title='Dataset used')
+plt.show()
+```
+```{python}
+#| eval: false
+fig = plt.figure(figsize=(10, 10), dpi=300)
+
+bbox_plot = plt.boxplot([lin_results_ilwc, lin_results_ilw, xgboost_results_ilwc, xgboost_results_ilw], vert=True, patch_artist=True, medianprops = dict(linestyle='-', linewidth=2.5, color=WHITE))
+
+colors = [RED, GREEN, RED, GREEN]
+for patch, color in zip(bbox_plot['boxes'], colors):
+  patch.set_facecolor(color)
+plt.xticks([1.5, 3.5], ['Lin. Reg.', 'XGBoost'])
+plt.ylabel('RMSE on JET-ILW Subset')
+legend_elements = [Patch(facecolor=RED, edgecolor='black', label='JET-C'), Patch(facecolor=GREEN, edgecolor='black',label='JET-C & JET-ILW')]
+
+# Create the figure
+plt.legend(handles=legend_elements, title='Dataset used')
+plt.show()
+```
+
+```{python}
+
+seed = np.argmin(xgboost_results_c)
+shuffled_idxs = random.sample(jet_c.index.to_list(), k=len(jet_c))
+jet_c_train, jet_c_test = jet_c.loc[shuffled_idxs[:-50]], jet_c.loc[shuffled_idxs[-50:]]
+
+shuffled_idxs = random.sample(jet_ilw.index.to_list(), k=len(jet_ilw))
+jet_ilw_train, jet_ilw_test = jet_ilw.loc[shuffled_idxs[:-200]], jet_ilw.loc[shuffled_idxs[-200:]]
+
+X_train_c, y_train_c = jet_c_train[inputs], jet_c_train[targets]
+X_test_c, y_test_c = jet_c_test[inputs], jet_c_test[targets]
+
+X_train_ilw, y_train_ilw = jet_ilw_train[inputs], jet_ilw_train[targets]
+X_test_ilw, y_test_ilw = jet_ilw_test[inputs], jet_ilw_test[targets]
+
+X_train_both, y_train_both = pd.concat([X_train_ilw, X_train_c]), pd.concat([y_train_ilw, y_train_c])
+
+reg_c_lin = LinearRegression().fit(X_train_c, y_train_c)
+reg_cilw_lin = LinearRegression().fit(X_train_both, y_train_both)
+
+fig = plt.figure() 
+
+plt.scatter(y_test_c, reg_c_lin.predict(X_test_c), color=RED)
+plt.scatter(y_test_c, reg_cilw_lin.predict(X_test_c), color=GREEN)
+lb, ub = 1, 12.5
+reg_x = np.linspace(lb, ub)
+plt.plot(reg_x, reg_x, lw=2, color='black')
+plt.plot(reg_x, reg_x*1.2, lw=2, color='black', ls='--')
+plt.plot(reg_x, reg_x*0.8, lw=2, color='black', ls='--')
+plt.xlim(lb, ub)
+plt.ylim(lb, ub)
+plt.xlabel('True $n_e^{ped}$ (m$^{-3}$)')
+plt.ylabel('Predicted $n_e^{ped}$ (m$^{-3}$)')
+plt.legend(frameon=False)
+
+
+dtrain = xgb.DMatrix(X_train_c, label=y_train_c)
+dtest_c = xgb.DMatrix(X_test_c)
+params = dict(max_depth=11, learning_rate=0.1, objective='reg:squarederror')
+bst_c = xgb.train(params, dtrain, 100, [(dtrain, 'train')], verbose_eval=False)
+
+
+dtrain = xgb.DMatrix(X_train_both, label=y_train_both)
+dtest_c = xgb.DMatrix(X_test_c)
+# reg_c_tree = GradientBoostingRegressor().fit(X_train_c, y_train_c)
+bst_cilw = xgb.train(params, dtrain, 100, [(dtrain, 'train')], verbose_eval=False)
+
+plt.scatter(y_test_c, bst_c.predict(dtest_c), color=RED, marker='*')
+plt.scatter(y_test_c, bst_cilw.predict(dtest_c), color=GREEN, marker='*')
+
+plt.show()
+
+```
+
+```{python}
+#| eval: false
+reg = LinearRegression().fit(X_c, y_c)
+fig = plt.figure() 
+plt.title('Linear regressor fit on JET-C data')
+plt.scatter(y_c, reg.predict(X_c), color=RED, edgecolors=(0, 0, 0), label='JET-C: RMSE={:.4}'.format(mean_squared_error(y_c, reg.predict(X_c), squared=False)))
+plt.scatter(y_ilw, reg.predict(X_ilw), color=GREEN, edgecolors=(0, 0, 0), label='JET-ILW: RMSE={:.4}'.format(mean_squared_error(y_ilw, reg.predict(X_ilw), squared=False)))
+lb, ub = 1, 12.5
+reg_x = np.linspace(lb, ub)
+plt.plot(reg_x, reg_x, lw=2, color='black')
+plt.plot(reg_x, reg_x*1.2, lw=2, color='black', ls='--')
+plt.plot(reg_x, reg_x*0.8, lw=2, color='black', ls='--')
+plt.xlim(lb, ub)
+plt.ylim(lb, ub)
+plt.xlabel('True $n_e^{ped}$ (m$^{-3}$)')
+plt.ylabel('Predicted $n_e^{ped}$ (m$^{-3}$)')
+plt.legend(frameon=False)
+# reg.coef_
+# reg.intercept_
+# reg.predict(np.array([[3, 5]]))
+```
+
+```{python}
+#| eval: false
+reg_c = LinearRegression().fit(X_c, y_c)
+print('Regressor trained on JET-C')
+print('JET-ILW: RMSE = {:.4}'.format(mean_squared_error(y_ilw, reg_c.predict(X_ilw), squared=False)))
+print('JET-C: RMSE = {:.4}'.format(mean_squared_error(y_c, reg_c.predict(X_c), squared=False)))
+print()
+
+reg_ilw = LinearRegression().fit(X_ilw, y_ilw)
+print('Regressor trained on JET-ILW')
+print('JET-ILW: RMSE = {:.4}'.format(mean_squared_error(y_ilw, reg_ilw.predict(X_ilw), squared=False)))
+print('JET-C: RMSE = {:.4}'.format(mean_squared_error(y_c, reg_ilw.predict(X_c), squared=False)))
+print()
+
+reg_both = LinearRegression().fit(X_all, y_all)
+print('Regressor trained on JET-ILW and JET-C')
+print('JET-ILW: RMSE = {:.4}'.format(mean_squared_error(y_ilw, reg_both.predict(X_ilw), squared=False)))
+print('JET-C: RMSE = {:.4}'.format(mean_squared_error(y_c, reg_both.predict(X_c), squared=False)))
+print()
+
+
+```
+
+
+```{python}
+#| eval: false
+def norm_mps(mps, mp_means, mp_stds): 
+    return (mps - mp_means) / mp_stds
+
+
+def get_cv_iterator(X, y, num_cv: int = 15):
+    X, y = X.reset_index(drop=True), y.reset_index(drop=True)
+    train_size, test_size = 0.8, 0.2
+    X_trainval, X_test, y_trainval, y_test = scsplit(X, y, stratify=y, train_size=train_size, random_state=18)
+    val_size = 0.1
+    X_test_np, y_test_np =  X_test.to_numpy(), y_test.to_numpy()
+    X_trainval, y_trainval = X_trainval.reset_index(drop=True), y_trainval.reset_index(drop=True)
+    
+    for rng in list(range(num_cv)):
+        X_train, X_val, y_train, y_val = scsplit(X_trainval, y_trainval, stratify=y_trainval, test_size=val_size, random_state=rng)
+        train_mps_np, val_mps_np = X_train.to_numpy(), X_val.to_numpy(),
+        train_nepeds_np, val_nepeds_np = y_train.to_numpy(), y_val.to_numpy()
+        test_mps_np = X_test_np.copy()
+        if False: 
+            # Can only normalize the numerical features in this case
+            num_numerical = X_test_np.shape[-1]
+            mp_means, mp_stds = np.mean(train_mps_np, axis=0), np.std(train_mps_np, axis=0)            
+            train_mps_np[:, :num_numerical], val_mps_np[:, :num_numerical], test_mps_np[:, :num_numerical] = norm_mps(train_mps_np[:, :num_numerical], mp_means[:num_numerical], mp_stds[:num_numerical]), norm_mps(val_mps_np[:, :num_numerical], mp_means[:num_numerical], mp_stds[:num_numerical]), norm_mps(test_mps_np[:, :num_numerical], mp_means[:num_numerical], mp_stds[:num_numerical])
+        else: 
+            mp_means, mp_stds = np.mean(train_mps_np, axis=0), np.std(train_mps_np, axis=0)
+            train_mps_np, val_mps_np, test_mps_np = norm_mps(train_mps_np, mp_means, mp_stds), norm_mps(val_mps_np, mp_means, mp_stds), norm_mps(test_mps_np, mp_means, mp_stds)
+        yield (train_mps_np, train_nepeds_np), (val_mps_np, val_nepeds_np), (test_mps_np, y_test_np), (mp_means, mp_stds)
+
+X_all, y_all = jet_pdb[lorenzo_inputs], jet_pdb[targets]
+X_c, y_c = jet_c[lorenzo_inputs], jet_c[targets]
+X_ilw, y_ilw = jet_ilw[lorenzo_inputs], jet_ilw[targets]
+carbon_iterator = get_cv_iterator(X_c, y_c, 15)
+ilw_iterator = get_cv_iterator(X_ilw, y_ilw, 15)
+both_iterator = get_cv_iterator(X_all, y_all, 15)
+```
+
+```{python}
+#| eval: false
+params = {'n_estimators': 500, 'learning_rate': 0.01}
+# carbon training 
+test_score_c, test_score_ilw = 0.0, 0.0
+test_score_c_lin, test_score_ilw_lin = 0.0, 0.0
+for k, batch in enumerate(carbon_iterator): 
+  train, valid, test, (mp_means, mp_stds) = batch 
+  X_train, y_train = train
+  X_test, y_test = test
+  reg_c = GradientBoostingRegressor(**params).fit(X_train, y_train)
+  reg_c_lin = LinearRegression().fit(X_train, y_train)
+  test_score_ilw += mean_squared_error(y_ilw, reg_c.predict(norm_mps(X_ilw.to_numpy(), mp_means, mp_stds)), squared=False) 
+  test_score_c += mean_squared_error(y_test, reg_c.predict(X_test), squared=False)
+  test_score_ilw_lin += mean_squared_error(y_ilw, reg_c_lin.predict(norm_mps(X_ilw.to_numpy(), mp_means, mp_stds)), squared=False) 
+  test_score_c_lin += mean_squared_error(y_test, reg_c_lin.predict(X_test), squared=False)
+
+test_score_c /= (k+1)
+test_score_ilw /= (k+1)
+test_score_c_lin /= (k+1)
+test_score_ilw_lin /= (k+1)
+
+print('Regressor trained on JET-C')
+print('JET-ILW: Forest: {:.4}, Linear {:.4}'.format(test_score_ilw, test_score_ilw_lin), )
+print('JET-C: Forest = {:.4}, Linear {:.4}'.format(test_score_c, test_score_c_lin))
+print()
+```
+
+```{python}
+#| eval: false
+# ILW training 
+test_score_c, test_score_ilw = 0.0, 0.0
+for k, batch in enumerate(ilw_iterator): 
+  train, valid, test, (mp_means, mp_stds) = batch 
+  X_train, y_train = train
+  X_test, y_test = test
+  reg_ilw = GradientBoostingRegressor(**params).fit(X_train, y_train)
+  reg_ilw_lin = LinearRegression().fit(X_train, y_train)
+  test_score_c += mean_squared_error(y_c, reg_ilw.predict(norm_mps(X_c.to_numpy(), mp_means, mp_stds)), squared=False) 
+  test_score_ilw += mean_squared_error(y_test, reg_ilw.predict(X_test), squared=False)
+  test_score_c_lin += mean_squared_error(y_c, reg_ilw_lin.predict(norm_mps(X_c.to_numpy(), mp_means, mp_stds)), squared=False) 
+  test_score_ilw_lin += mean_squared_error(y_test, reg_ilw_lin.predict(X_test), squared=False)
+
+test_score_c /= (k+1)
+test_score_ilw /= (k+1)
+test_score_c_lin /= (k+1)
+test_score_ilw_lin /= (k+1)
+print('Regressor trained on JET-ILW')
+print('JET-ILW: Forest: {:.4}, Linear {:.4}'.format(test_score_ilw, test_score_ilw_lin), )
+print('JET-C: Forest = {:.4}, Linear {:.4}'.format(test_score_c, test_score_c_lin))
+print()
+```
+
+```{python}
+#| eval: false
+test_score = 0.0
+test_score_lin = 0.0
+for k, batch in enumerate(both_iterator): 
+  train, valid, test, (mp_means, mp_stds) = batch 
+  X_train, y_train = train
+  X_test, y_test = test
+  reg_both = GradientBoostingRegressor(**params).fit(X_train, y_train)
+  reg_both_lin = LinearRegression().fit(X_train, y_train)
+  test_score += mean_squared_error(y_test, reg_both.predict(X_test), squared=False)
+  test_score_lin += mean_squared_error(y_test, reg_both_lin.predict(X_test), squared=False)
+
+test_score_lin /= k+1
+test_score /= k+1
+print('Regressor trained on JET-ILW and JET-C')
+print('Forest: {:.4}, Lin {:.4}'.format(test_score, test_score_lin))
+# print('JET-ILW: RMSE = {:.4}'.format(mean_squared_error(y_ilw, reg_both.predict(X_ilw), squared=False)))
+# print('JET-C: RMSE = {:.4}'.format(mean_squared_error(y_c, reg_both.predict(X_c), squared=False)))
+print()
+
+
+```

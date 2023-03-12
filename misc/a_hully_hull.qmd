@@ -1,0 +1,100 @@
+---
+title: "In a convex hull?"
+format:
+  html:
+    code-fold: true
+    page-layout: full
+jupyter: python3
+execute: 
+  echo: false
+  warning: false
+  cache: true
+fig-width: 10 
+fig-height: 10
+---
+
+
+```{python}
+
+import pandas as pd 
+import numpy as np 
+import matplotlib.pyplot as plt 
+from matplotlib.patches import Patch, Circle, PathPatch
+import mpl_toolkits.mplot3d.art3d as art3d
+import os 
+from sklearn.metrics import mean_squared_error
+from verstack.stratified_continuous_split import scsplit
+
+rel_dir = '/home/kitadam/ENR_Sven/supervised_learning_jetpdb/data/jet-all-full.csv'
+jet_pdb_all = pd.read_csv(rel_dir)
+jet_pdb = jet_pdb_all[(jet_pdb_all['elongation'] != -1) & (jet_pdb_all['Zeff'] != -1)]
+jet_pdb['P_NBI(MW)'][jet_pdb['P_NBI(MW)'] < 0] = 0.0 
+jet_pdb['gasflowrateofmainspecies10^22(e/s)'][jet_pdb['gasflowrateofmainspecies10^22(e/s)'] < 0] = 0.0 
+jet_pdb.loc[:, 'divertorconfiguration'] = jet_pdb.loc[:, 'divertorconfiguration'].astype('category')
+jet_pdb.loc[:, 'divertorconfiguration'] = jet_pdb.loc[:, 'divertorconfiguration'].cat.codes
+jet_pdb['wall'] = [int(i) for i in (jet_pdb['shot'] < 80000).to_list()]
+global_cols = ['BetaN(MHD)', 'Zeff']
+info_cols = ['shot', 't1', 't2']
+ped_cols = ['nepedheight10^19(m^-3)', 'error_nepedheight10^19(m^-3)']
+mp_cols = ['Ip(MA)', 'B(T)', 'a(m)', 'q95','averagetriangularity', 'plasmavolume(m^3)','elongation','P_NBI(MW)', 'P_ICRH(MW)', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)',   'gasflowrateofmainspecies10^22(e/s)', ]
+cat_cols = ['FLAG:Kicks', 'FLAG:RMP', 'FLAG:pellets', 'divertorconfiguration', 'Atomicnumberofseededimpurity']
+flags = ['FLAG:DEUTERIUM', 'FLAG:HYDROGEN', 'FLAG:H/Dmix', 'FLAG:HeJET-C', 'FLAG:Seeding', 'FLAG:Kicks', 'FLAG:RMP', 'FLAG:pellets', 'FLAG:HRTSdatavalidated', 'divertorconfiguration', 'Atomicnumberofseededimpurity',]
+os.environ['PLOTSTYLE'] = '/home/kitadam/ENR_Sven/basematplotlibstyle.mplstyle'
+if os.getenv('PLOTSTYLE') is not None: 
+    plt.style.use(os.getenv('PLOTSTYLE'))
+RED = "#dd3015"
+GREEN = "#489A8C"
+DARK = "#1C2C22"
+GOLD = "#F87D16"
+WHITE = "#FFFFFF"
+BLUE = "#2E6C96"
+PURPLE = '#d7a7ef'
+LIGHTBLUE = "#a7bfef"
+```
+
+
+```{python}
+jet_c = jet_pdb[jet_pdb['shot'] < 81000]
+jet_ilw = jet_pdb[jet_pdb['shot'] > 81000]
+lorenzo_inputs = ['Ip(MA)', 'averagetriangularity', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)', 'gasflowrateofmainspecies10^22(e/s)', 'Meff']
+inputs = ['Ip(MA)', 'B(T)', 'a(m)', 'P_NBI(MW)', 'P_ICRH(MW)', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)', 'plasmavolume(m^3)', 'q95', 'gasflowrateofmainspecies10^22(e/s)', 'elongation', 'averagetriangularity', 'FLAG:Kicks', 'FLAG:RMP', 'FLAG:pellets', 'Atomicnumberofseededimpurity', 'divertorconfiguration', 'wall']
+
+inputs = ['Ip(MA)', 'averagetriangularity', 'nepedheight10^19(m^-3)']
+targets = 'nepedheight10^19(m^-3)'
+```
+
+### Subset in convex hull? 
+```{python}
+import random 
+from scipy.optimize import linprog
+
+random.seed(42)
+shuffled_idxs = random.sample(jet_pdb.index.to_list(), k=len(jet_pdb))
+
+jet_train, jet_test = jet_pdb.loc[shuffled_idxs[:-200]], jet_pdb.loc[shuffled_idxs[-200:]]
+
+X_train, y_train = jet_train[inputs], jet_train[targets]
+X_test, y_test = jet_test[inputs], jet_test[targets]
+# X_all, y_all = jet_pdb[inputs], jet_pdb[targets]
+
+def in_hull(points, x): # https://stackoverflow.com/questions/16750618/whats-an-efficient-way-to-find-if-a-point-lies-in-the-convex-hull-of-a-point-cl
+  n_points = len(points)
+  n_dim = len(x)
+  c = np.zeros(n_points)
+  A = np.r_[points.T,np.ones((1,n_points))]
+  b = np.r_[x, np.ones(1)]
+  lp = linprog(c, A_eq=A, b_eq=b)
+  return lp.success
+
+
+plt.scatter(X_train[inputs[0]], X_train[inputs[1]])
+
+
+for i in range(len(X_test)): 
+  if in_hull(X_train.values, X_test.values[i]): 
+    plt.scatter(X_test.values[i, 0], X_test.values[i, 1], color=RED)
+  else: 
+    plt.scatter(X_test.values[i, 0], X_test.values[i, 1], color=PURPLE)
+
+plt.show()
+```
