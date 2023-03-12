@@ -1,0 +1,11 @@
+## 12 March 2023
+- managing python pacakges https://github.com/David-OConnor/pyflow
+- learning in high dimensions blog post https://lauraruis.github.io/2021/11/06/extra.html
+- Interesting twitters
+	- https://twitter.com/y0b1byte
+	- https://twitter.com/LauraRuis/status/1594294877692760066
+	- https://twitter.com/fchollet/status/1450524400227287040
+- Learning in high dimensions
+	- https://arxiv.org/abs/2110.09485
+- Clarisse Paper
+	- https://iopscience.iop.org/article/10.1088/1741-4326/acbfcf
