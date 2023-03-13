@@ -1,3 +1,4 @@
-nbclient
-nbformat
-pandas
+matplotlib
+scikit-learn
+pandas 
+jupyter

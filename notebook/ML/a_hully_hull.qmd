@@ -1,14 +1,10 @@
 ---
-title: "In a convex hull?"
-format:
-  html:
-    code-fold: true
-    page-layout: full
-jupyter: python3
+title: "Watermelons without juice and the search for UQ"
+
 execute: 
   echo: false
   warning: false
-  cache: true
+
 fig-width: 10 
 fig-height: 10
 ---
@@ -23,7 +19,6 @@ from matplotlib.patches import Patch, Circle, PathPatch
 import mpl_toolkits.mplot3d.art3d as art3d
 import os 
 from sklearn.metrics import mean_squared_error
-from verstack.stratified_continuous_split import scsplit
 
 rel_dir = '/home/kitadam/ENR_Sven/supervised_learning_jetpdb/data/jet-all-full.csv'
 jet_pdb_all = pd.read_csv(rel_dir)
@@ -56,14 +51,28 @@ LIGHTBLUE = "#a7bfef"
 ```{python}
 jet_c = jet_pdb[jet_pdb['shot'] < 81000]
 jet_ilw = jet_pdb[jet_pdb['shot'] > 81000]
-lorenzo_inputs = ['Ip(MA)', 'averagetriangularity', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)', 'gasflowrateofmainspecies10^22(e/s)', 'Meff']
+lorenzo_inputs = ['Ip(MA)', 'averagetriangularity', 'P_NBI(MW)','Meff']
 inputs = ['Ip(MA)', 'B(T)', 'a(m)', 'P_NBI(MW)', 'P_ICRH(MW)', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)', 'plasmavolume(m^3)', 'q95', 'gasflowrateofmainspecies10^22(e/s)', 'elongation', 'averagetriangularity', 'FLAG:Kicks', 'FLAG:RMP', 'FLAG:pellets', 'Atomicnumberofseededimpurity', 'divertorconfiguration', 'wall']
 
-inputs = ['Ip(MA)', 'averagetriangularity', 'nepedheight10^19(m^-3)']
 targets = 'nepedheight10^19(m^-3)'
 ```
 
-### Subset in convex hull? 
+
+With high dimensional data, when splitting the data into train-test subsets, it is very unlikely that the test set falls into the convex hull of the training set, thus by measuring performance on the test set, we are likely measuring performance of the extrapolation rather than interpolation capabilities of the model [@HighDimLearning] (described for dummies [here](https://lauraruis.github.io/2021/11/06/extra.html)). 
+
+The dilema for me is if we are always extrapolating, then somehow the UQ for a model should be defined in terms of the distance from the convex hull. Therefore, I want to investigate the properties of error in prediction for various models w.r.t the distance from the quiered point to the convex hull of the training set.  
+
+## Subset in convex hull? 
+
+First we need an algorithm to see if a point is within the convex hull of the training set. 
+
+- Maths 
+- Algorithm as a linear programming problem [Stackoverflow Implementation](https://stackoverflow.com/questions/16750618/whats-an-efficient-way-to-find-if-a-point-lies-in-the-convex-hull-of-a-point-cl)
+
+We can check this then for the JET Pedestal database for varying input dimensions and splits. 
+
+- **NB** Is the convex hull defined by the point cloud of input variables as well as target variable? Yes probably. 
+
 ```{python}
 import random 
 from scipy.optimize import linprog
@@ -77,7 +86,7 @@ X_train, y_train = jet_train[inputs], jet_train[targets]
 X_test, y_test = jet_test[inputs], jet_test[targets]
 # X_all, y_all = jet_pdb[inputs], jet_pdb[targets]
 
-def in_hull(points, x): # https://stackoverflow.com/questions/16750618/whats-an-efficient-way-to-find-if-a-point-lies-in-the-convex-hull-of-a-point-cl
+def in_hull(points, x): # 
   n_points = len(points)
   n_dim = len(x)
   c = np.zeros(n_points)
@@ -98,3 +107,14 @@ for i in range(len(X_test)):
 
 plt.show()
 ```
+
+## Distance to convex hull? 
+
+This is probably tricky, as we would have to calculate the convex hull for a high dimensional space. 
+
+Maybe we should instead quantify the distance of the point to the closest point __inside__ the convex hull? 
+
+## Applications 
+
+1. Could we make graphs of the error vs distance vs dimenisonality of input space for both the parameter space as well as latent space for DIVA?
+2. How does error vs distance to hull vary as a function of model? And input space? 

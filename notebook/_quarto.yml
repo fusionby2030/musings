@@ -1,0 +1,10 @@
+project:
+  title: "notebook"
+
+html:
+  code-fold: true
+  page-layout: full
+
+jupyter: python3
+bibliography: references.bib  
+csl: nature.csl
