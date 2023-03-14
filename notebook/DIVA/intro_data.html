@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.269">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>A general introduction to the dataset for time-independent DIVA</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="intro_data_files/libs/clipboard/clipboard.min.js"></script>
+<script src="intro_data_files/libs/quarto-html/quarto.js"></script>
+<script src="intro_data_files/libs/quarto-html/popper.min.js"></script>
+<script src="intro_data_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="intro_data_files/libs/quarto-html/anchor.min.js"></script>
+<link href="intro_data_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="intro_data_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="intro_data_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="intro_data_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="intro_data_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">A general introduction to the dataset for time-independent DIVA</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="from-raw-ppf-to-dataset" class="level2">
+<h2 class="anchored" data-anchor-id="from-raw-ppf-to-dataset">From raw PPF to dataset</h2>
+<p>the goal is to keep it as raw as possible without detrimental effects to number of data points.</p>
+<ol start="0" type="1">
+<li>JET PDB
+<ul>
+<li>In the future, should check out just H-mode (power threshold?)</li>
+</ul></li>
+<li>Machine parameters are sampled at a different frequency than the HRTS data, so we map them to the HRTS time via linear interpolation:</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>f <span class="op">=</span> interp1d(mp_raw_time, mp_raw_data)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>relevant_mp_vals <span class="op">=</span> f(relevant_time_of_hrts_sample)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<ol start="2" type="1">
+<li>Sometimes, HRTS doesn’t work properly, and provides less than 63 radial points, so we drop those that are not ‘full’.</li>
+<li>The gas fuelling rate is measured in <span class="math inline">\(e/s\)</span>, which there are many electrons <span class="math inline">\(~10^{22}\)</span>, so we divide by <span class="math inline">\(10^{22}\)</span>.</li>
+<li>We clamp the power values to be positive, as sometimes they are negative (wtf?)</li>
+<li>We remove slices with profiles that have 0’s or negative values anywhere radially (wtf?)
+<ul>
+<li>JET Shot num 83294</li>
+</ul></li>
+<li>Slices are tossed if any radial points exist that satisfy <span class="math inline">\(T_e &gt;=5000\)</span> <strong>and</strong> <span class="math inline">\(n_e &lt;= 5e^{18}\)</span></li>
+</ol>
+<div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>points_to_throwaway <span class="op">=</span> torch.logical_and((profiles[:, <span class="dv">1</span>, <span class="op">-</span><span class="dv">15</span>:] <span class="op">&gt;</span> <span class="dv">5000</span>), (profiles[:, <span class="dv">0</span>, <span class="op">-</span><span class="dv">15</span>:] <span class="op">&lt;</span> <span class="fl">5e18</span>))</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>slices_to_keep <span class="op">=</span> <span class="op">~</span>torch.<span class="bu">any</span>(points_to_throwaway, dim<span class="op">=-</span><span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<ul>
+<li><strong>NB</strong> We ignore the fact that the Radii (calculated from EFIT) change between slices/shots?</li>
+</ul>
+<section id="size-of-the-dataset" class="level4">
+<h4 class="anchored" data-anchor-id="size-of-the-dataset">Size of the dataset</h4>
+<div class="cell" data-execution_count="2">
+<div class="cell-output cell-output-stdout">
+<pre><code>Number of Shots 1292</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Number of time slices 62479</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="statistics-of-dataset" class="level2">
+<h2 class="anchored" data-anchor-id="statistics-of-dataset">Statistics of dataset</h2>
+<section id="profiles" class="level3">
+<h3 class="anchored" data-anchor-id="profiles">Profiles</h3>
+<div class="cell" data-execution_count="5">
+<div class="cell-output cell-output-display">
+<p><img src="intro_data_files/figure-html/cell-6-output-1.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="intro_data_files/figure-html/cell-6-output-2.png" class="img-fluid"></p>
+</div>
+</div>
+<p>Well, we still have some very high values, but should work out in the end… ### Machine parameters</p>
+<div class="cell" data-execution_count="6">
+<div class="cell-output cell-output-display" data-execution_count="6">
+
+<div>
+
+<table class="dataframe table table-sm table-striped">
+  <thead>
+    <tr>
+      <th>Param</th>
+      <th>Mean</th>
+      <th>Sd</th>
+      <th>Max</th>
+      <th>Min</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>BTF</th>
+      <td>-2.379796e+00</td>
+      <td>4.824252e-01</td>
+      <td>-9.623408e-01</td>
+      <td>-3.668294e+00</td>
+    </tr>
+    <tr>
+      <th>IpiFP</th>
+      <td>-2.176012e+06</td>
+      <td>5.596581e+05</td>
+      <td>-8.004782e+05</td>
+      <td>-4.498590e+06</td>
+    </tr>
+    <tr>
+      <th>D_tot</th>
+      <td>2.212978e+00</td>
+      <td>2.301933e+00</td>
+      <td>3.679407e+01</td>
+      <td>-3.992906e+01</td>
+    </tr>
+    <tr>
+      <th>PNBI_TOT</th>
+      <td>1.491406e+07</td>
+      <td>5.767679e+06</td>
+      <td>3.282043e+07</td>
+      <td>0.000000e+00</td>
+    </tr>
+    <tr>
+      <th>PICR_TOT</th>
+      <td>1.460868e+06</td>
+      <td>1.802576e+06</td>
+      <td>8.391794e+06</td>
+      <td>0.000000e+00</td>
+    </tr>
+    <tr>
+      <th>PECR_TOT</th>
+      <td>0.000000e+00</td>
+      <td>0.000000e+00</td>
+      <td>0.000000e+00</td>
+      <td>0.000000e+00</td>
+    </tr>
+    <tr>
+      <th>P_OH</th>
+      <td>5.292353e+05</td>
+      <td>2.858475e+05</td>
+      <td>2.404499e+06</td>
+      <td>0.000000e+00</td>
+    </tr>
+    <tr>
+      <th>k</th>
+      <td>1.685709e+00</td>
+      <td>3.500449e-02</td>
+      <td>1.807394e+00</td>
+      <td>1.589254e+00</td>
+    </tr>
+    <tr>
+      <th>delRoben</th>
+      <td>2.185588e-01</td>
+      <td>1.002795e-01</td>
+      <td>5.055999e-01</td>
+      <td>3.957596e-02</td>
+    </tr>
+    <tr>
+      <th>delRuntn</th>
+      <td>3.274765e-01</td>
+      <td>4.319265e-02</td>
+      <td>5.049496e-01</td>
+      <td>2.308528e-01</td>
+    </tr>
+    <tr>
+      <th>ahor</th>
+      <td>9.249189e-01</td>
+      <td>1.932882e-02</td>
+      <td>9.787297e-01</td>
+      <td>8.262935e-01</td>
+    </tr>
+    <tr>
+      <th>Rgeo</th>
+      <td>2.906712e+00</td>
+      <td>1.829499e-02</td>
+      <td>2.973369e+00</td>
+      <td>2.804235e+00</td>
+    </tr>
+    <tr>
+      <th>q95</th>
+      <td>3.447710e+00</td>
+      <td>4.237731e-01</td>
+      <td>6.183475e+00</td>
+      <td>2.520422e+00</td>
+    </tr>
+    <tr>
+      <th>Vol</th>
+      <td>7.547254e+01</td>
+      <td>2.531238e+00</td>
+      <td>8.268580e+01</td>
+      <td>5.808901e+01</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

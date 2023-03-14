@@ -1,0 +1,175 @@
+---
+title: "A general introduction to the dataset for time-independent DIVA"
+
+execute: 
+  echo: false
+  warning: false
+
+fig-width: 10 
+fig-height: 10
+---
+
+```{python}
+
+import pandas as pd 
+import numpy as np 
+import os
+import matplotlib.pyplot as plt 
+
+rel_dir = '/home/kitadam/ENR_Sven/supervised_learning_jetpdb/data/jet-all-full.csv'
+jet_pdb_all = pd.read_csv(rel_dir)
+
+array_dir = '/home/kitadam/ENR_Sven/ped_ssm/diva_revisted/'
+with open(os.path.join(array_dir, 'mp_names_saved.txt'), 'r') as f:
+    all_names_str = f.read()
+relevant_mp_columns = all_names_str.split(',')
+file_lists = [sorted([os.path.join(array_dir, fname) for fname in os.listdir(array_dir) if fname.endswith(f'{key}.npy')]) for key in ['PROFS', 'MP', 'RADII', 'TIME']] 
+profs_file_list, mps_file_list, radii_file_list, times_file_list = file_lists
+if os.getenv('PLOTSTYLE') is not None: 
+    plt.style.use(os.getenv('PLOTSTYLE'))
+```
+
+## From raw PPF to dataset 
+
+the goal is to keep it as raw as possible without detrimental effects to number of data points. 
+
+0. JET PDB
+    - In the future, should check out just H-mode (power threshold?)
+1. Machine parameters are sampled at a different frequency than the HRTS data, so we map them to the HRTS time via linear interpolation: 
+```python 
+f = interp1d(mp_raw_time, mp_raw_data)
+relevant_mp_vals = f(relevant_time_of_hrts_sample)
+```
+2. Sometimes, HRTS doesn't work properly, and provides less than 63 radial points, so we drop those that are not 'full'. 
+3. The gas fuelling rate is measured in $e/s$, which there are many electrons $~10^{22}$, so we divide by $10^{22}$. 
+4. We clamp the power values to be positive, as sometimes they are negative (wtf?)
+5. We remove slices with profiles that have 0's or negative values anywhere radially (wtf?) 
+    - JET Shot num 83294
+6. Slices are tossed if any radial points exist that satisfy $T_e >=5000$ **and** $n_e <= 5e^{18}$
+```python 
+points_to_throwaway = torch.logical_and((profiles[:, 1, -15:] > 5000), (profiles[:, 0, -15:] < 5e18))
+slices_to_keep = ~torch.any(points_to_throwaway, dim=-1)
+```
+- **NB** We ignore the fact that the Radii (calculated from EFIT) change between slices/shots? 
+
+```{python}
+
+```
+#### Size of the dataset 
+```{python}
+
+print('Number of Shots', len(profs_file_list))
+print('Number of time slices', sum([np.load(_prof_str).shape[0] for _prof_str in profs_file_list]))
+
+# shot_num, prof, mp = profs_file_list[0].split('/')[-1].split('_')[0], np.load(profs_file_list[0]), np.load(mps_file_list[0])
+
+```
+
+
+
+## Statistics of dataset
+
+
+```{python}
+import numpy as np 
+
+class RunningStats:
+    def __init__(self, name):
+        self.name = name
+        self.n = 0
+        self.old_m = 0
+        self.new_m = 0
+        self.old_s = 0
+        self.new_s = 0
+        self.old_max, self.old_min = 0, np.inf
+        self.new_max, self.new_min = 0, np.inf
+
+    def clear(self):
+        self.n = 0
+
+    def push(self, x):
+        self.n += 1
+
+        if self.n == 1:
+            self.old_m = self.new_m = x
+            self.old_s = 0
+            self.old_max = self.new_max = x
+        else:
+            self.new_m = self.old_m + (x - self.old_m) / self.n
+            self.new_s = self.old_s + (x - self.old_m) * (x - self.new_m)
+            self.new_max = np.maximum(self.old_max, x)
+            self.new_min = np.minimum(self.old_min, x)
+
+            self.old_m = self.new_m
+            self.old_s = self.new_s
+            self.old_max = self.new_max
+            self.old_min = self.new_min
+
+    def mean(self):
+        return self.new_m if self.n else 0.0
+
+    def variance(self):
+        return self.new_s / (self.n - 1) if self.n > 1 else 0.0
+
+    def standard_deviation(self):
+        return np.sqrt(self.variance())
+
+    def _max(self): 
+        return self.new_max 
+    def _min(self): 
+        return self.new_min
+
+    def __repr__(self):
+        return f'\n####{self.name}####\nn: {self.n}, mean: {self.mean()}, var: {self.variance()}, sd: {self.standard_deviation()}'
+
+```
+
+### Profiles
+```{python}
+
+shot_files = zip(profs_file_list, mps_file_list)
+prof_mean, mp_mean = RunningStats('prof'), RunningStats('mp')
+gas_idxs = [relevant_mp_columns.index(name) for name in ['D_tot', 'N_tot'] if name in relevant_mp_columns]
+for k, (prof, mp) in enumerate(shot_files): 
+    prof, mp = np.load(prof), np.load(mp)
+    prof[:, 0]*= 1e-19
+    for idx in gas_idxs: 
+        mp[:, idx]*= 1e-22
+    for t_idx in range(len(prof)): 
+        p, m = prof[t_idx], mp[t_idx]
+        prof_mean.push(p)    
+        mp_mean.push(m)
+```
+
+```{python}
+fig = plt.figure(figsize=(10, 5), tight_layout=True)
+
+for i, dim in enumerate(['Density ($10^{19}$m$^{-3}$)', 'Temperature (eV)']):
+    plt.subplot(1, 2, i+1)
+    plt.fill_between(list(range(len(prof_mean.mean()[i]))), prof_mean.mean()[i] - prof_mean.standard_deviation()[i], prof_mean.mean()[i] + prof_mean.standard_deviation()[i], color='grey')
+    plt.plot(prof_mean.mean()[i])
+    plt.ylim(0, max(prof_mean.mean()[i] + 1.25*prof_mean.standard_deviation()[i]))
+    plt.title(dim)
+fig.suptitle('Mean and 1$\sigma$ of Profiles in Dataset')
+plt.show()
+
+fig = plt.figure(figsize=(10, 5), tight_layout=True)
+for i, dim in enumerate(['Density ($10^{19}$m$^{-3}$)', 'Temperature (eV)']):
+    plt.subplot(1, 2, i+1)
+    # plt.fill_between(list(range(len(prof_mean.mean()[i]))), prof_mean.mean()[i] - prof_mean.standard_deviation()[i], prof_mean.mean()[i] + prof_mean.standard_deviation()[i], color='grey')
+    plt.plot(prof_mean._max()[i])
+    plt.plot(prof_mean._min()[i])
+    # plt.ylim(0, max(prof_mean.mean()[i] + 1.25*prof_mean.standard_deviation()[i]))
+    plt.title(dim)
+fig.suptitle('Max/min for each radial coord. of profiles in Dataset')
+plt.show()
+```
+
+Well, we still have some very high values, but should work out in the end...
+### Machine parameters
+```{python}
+as_dict = {name: [m, sd, ma, mi] for name, m, sd, ma, mi in zip(relevant_mp_columns, mp_mean.mean(), mp_mean.standard_deviation(), mp_mean._max(), mp_mean._min())}
+as_dict.update({'Param': ['Mean', 'Sd', 'Max', 'Min']})
+machine_params_summary_df = pd.DataFrame(as_dict).set_index('Param')
+machine_params_summary_df.T
+```
