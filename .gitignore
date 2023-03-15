@@ -9,6 +9,8 @@ __pycache__/
 # Quarto stuff 
 .quarto/
 
+# Allas stuff 
+allas-cli-utils/
 # C extensions
 *.so
 
