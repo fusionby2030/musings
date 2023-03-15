@@ -1,0 +1,164 @@
+---
+title: "Some Automating"
+
+execute: 
+  echo: false
+  warning: false
+
+---
+
+
+```{python}
+import os 
+import numpy as np
+from io import BytesIO
+from helper_functions import get_allas_connection, get_dict_params
+import matplotlib.pyplot as plt 
+
+conn = get_allas_connection()
+
+shot_list = [fname for fname in os.listdir('/home/adam/ENR_Sven/moxie/data/raw/RAW_JET_PULSES')]
+import random 
+random.seed(44)
+sample_shot_nums = random.sample(shot_list, k=5)
+```
+
+# What do we want to automate
+
+Three things: 
+
+1. Finding of H-Mode 
+    - Power threshold 
+2. Steady-states
+    - Tricky
+3. ELM timings 
+    - Also Tricky 
+4. Curve fitting
+    - Bayesian :--)
+
+
+## 1. Finding H-mode
+
+The amount of power needed to enter H-mode is commonly described as the L-H threshold, or $P_{LH}$. 
+
+An example of a scaling law derived in terms of machine parameters is given in @Martin_2008: 
+
+$$P_{\text{LH}} [\text{MW}] = 2.15e^{\pm 0.107} n_{e20}^{0.728 \pm 0.037} B_T^{0.772 \pm 0.031} a^{0.975\pm 0.08} R^{0.999\pm 0.101 }$$
+where $B_T$ [T], $n_e$ [$10^{20}$ m $^{-2}$], $a$ [m], $R$ [m] are the magnitude of the toroidal magnetic field, line averaged electron density, major and minor plasma radius, respectively. The shaping parameters are sometimes refered to as $S$, or parameterized as the surface area. 
+This can be intuitively thought of as given some volume of plasma, with surface area $S$ and density $n$, that is confined by a magnetic field $B$, there exists some amount of power needed to excited it to pass into a new regime. 
+
+Thus, we are looking for the times where $P_\text{TOT} \geq P_{\text{LH}}$, or $\frac{P_\text{TOT}}{P_{\text{LH}}} \geq 1.0$
+
+
+```{python}
+
+from typing import Dict
+from scipy.interpolate import interp1d 
+def p_lh_threshold_martin_scaling_from_pulse_dict(pulse_dict: Dict[str, Dict[str, np.ndarray]]) -> [np.ndarray, np.ndarray]: 
+    power_scaling = lambda n, r, a, b : (2.14)*(np.exp(0.107))*(np.power(n*1e-20,0.728))*(np.power(abs(b),0.772))*(np.power(a,0.975))*(np.power(r,0.999))
+    lh_threshold_diagnostic_signal_names = ['kg1l/lad3', 'efit/Rgeo', 'efit/ahor', 'magn/BTF']
+    # Finds the lowest sampled signal so we can interpolate onto that domain
+    data_size_list = [(diag_sig, signal_dims['data'].shape) for diag_sig, signal_dims in pulse_dict.items() if diag_sig in lh_threshold_diagnostic_signal_names]
+    domain_diagnostic, _ = min(data_size_list, key=lambda t: t[1]) # https://docs.python.org/3.8/library/functions.html#min
+    diagnostics_to_interpolate = [d for d in lh_threshold_diagnostic_signal_names if d != domain_diagnostic]
+    time_domain = pulse_dict[domain_diagnostic]['time'].copy()
+
+    interpolated_dict = {domain_diagnostic: pulse_dict[domain_diagnostic]['data']}
+
+    for key in diagnostics_to_interpolate: 
+        _interp = interp1d(pulse_dict[key]['time'], pulse_dict[key]['data'])
+        interp_data = _interp(time_domain)
+        interpolated_dict[key] = interp_data
+
+    plh_threshold = 1e6*power_scaling(*[interpolated_dict[key] for key in lh_threshold_diagnostic_signal_names])
+    # Now to compare against the input power 
+    power_diagnostic_signal_names = ['power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT', 'nbip/shi']
+    t_start, t_end = None, None
+    total_power = np.zeros_like(time_domain)
+    for key in power_diagnostic_signal_names: 
+        try: 
+            _interp = interp1d(pulse_dict[key]['time'], pulse_dict[key]['data'], bounds_error=False, fill_value=0.0)
+            power_interped = _interp(time_domain)
+        except ValueError: 
+            power_interped = np.zeros_like(time_domain)
+        if key in ['nbip/sh']: 
+            total_power -= power_interped
+        else:     
+            total_power += power_interped
+    ratio_threshold_total_power = total_power / plh_threshold
+    # above_lh_threshold = time_domain[total_power > plh_threshold]
+    # t_start, t_end = above_lh_threshold[0], above_lh_threshold[-1]
+    return time_domain, plh_threshold, ratio_threshold_total_power
+
+
+# diagnostic_names = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3', 'nbip/shi', 'efit/Rgeo', 'efit/ahor', 'magn/BTF', ]
+# lh_threshold_diagnostic_signal_names = ['kg1l/lad3', 'efit/Rgeo', 'efit/ahor', 'magn/BTF', '']
+diagnostic_signal_names = ['kg1l/lad3', 'efit/Rgeo', 'efit/ahor', 'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT', 'nbip/shi']
+shot_number = 81768
+
+example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
+
+time_domain, plh_threshold,ratio_threshold_total_power = p_lh_threshold_martin_scaling_from_pulse_dict(example_dict)
+fig = plt.figure()
+plt.title(f'JET #{shot_number}')
+plt.plot(time_domain, ratio_threshold_total_power)
+plt.xlabel('Time (s)')
+plt.ylabel('$P_{TOT} / P_{LH}$')
+plt.axhline(1.0, ls='--', color='black')
+plt.show()
+
+
+```
+
+```{python}
+diagnostic_signal_names = ['kg1l/lad3', 'efit/Rgeo', 'efit/ahor', 'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT', 'nbip/shi']
+
+fig = plt.figure(figsize=(5, 15)) 
+
+for k, shot_number in enumerate(sample_shot_nums): 
+    example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
+    if example_dict is None: 
+        print(shot_number)
+        continue 
+    time_domain, plh_threshold,ratio_threshold_total_power = p_lh_threshold_martin_scaling_from_pulse_dict(example_dict)
+    plt.subplot(len(sample_shot_nums), 1, k+1)
+    plt.title(f'JET #{shot_number}')
+    plt.plot(time_domain, ratio_threshold_total_power)
+    plt.xlabel('Time (s)')
+    plt.ylabel('$P_{TOT} / P_{LH}$')
+    plt.axhline(1.0, ls='--', color='black')
+
+plt.tight_layout()
+plt.show()
+
+```
+#### But how to get the time windows for H-mode? 
+
+- Easy (but not entirely accurate): $P_{TOT} >= P_{LH}$ 
+    - This picks up the L-H transition, but not the back transition, so we will need to find the charactaristic time for L-H transition
+- ??: use a change-point detection algorithm to find change points in the martin scaling? 
+
+
+##### Details on processing
+
+- Well to even plot the scaling law, all the data needs to be on the same axis...
+    - Interpolate the lowest frequency sampled basis 
+    - Possibly need to interpolate the power parameters themselves also
+
+
+## 2. Finding steady states
+Idk yet 
+
+## 3. ELM Timings 
+
+Here we have some attempts by others @ELM_TIMINGS_PREPRINT
+
+The algorithm implemented in @ELM_TIMINGS_PREPRINT is simplified as follows: 
+
+- 'up-sample' the signals
+    - DCT of signal, append 0s up to the highest sampling frequency range for each signal used
+    - Inverse DCT back to real space 
+- take first derivative 'up-sampled' signal.
+- From each differentiated signal, the $1-\nu$ largest points are labeled as canidates, where $\nu$ is a percentile filter for thresholding (optimal 0.997)
+    - `scipy.signal.find_peaks`
+
