@@ -1,1 +1,1 @@
-PLOTSTYLE=/home/kitadam/ENR_Sven/musings/basematplotlibstyle.mplstyle
+PLOTSTYLE=$PWD/basematplotlibstyle.mplstyle
