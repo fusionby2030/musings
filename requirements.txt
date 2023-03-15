@@ -2,3 +2,5 @@ matplotlib
 scikit-learn
 pandas 
 jupyter
+python-openstackclient 
+python-swiftclient
