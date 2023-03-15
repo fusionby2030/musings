@@ -20,6 +20,69 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1.6em;
   vertical-align: middle;
 }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
 div.csl-bib-body { }
 div.csl-entry {
   clear: both;
@@ -80,17 +143,22 @@ div.csl-indent {
 
 </header>
 
+<p>Datasets in fusion are commonly but finding relevant time windows of desired signals.</p>
+<p>This process is commonly done by experts in the field, who know what they are looking for, but is a very manual instensive process. Take for example, the JET Pedestal Database<span class="citation" data-cites="Frassinetti2021"><sup><a href="#ref-Frassinetti2021" role="doc-biblioref">1</a></sup></span>.</p>
+<ul>
+<li>The time windows are within H-mode an manually selected</li>
+<li>The ELM timings are likely hand-checked then correlated with the profile measurements</li>
+<li>Fitting of profiles with MTANH</li>
+</ul>
+<p>So we want to do this process, automatically and possibly compare models trained on JET PDB vs automated JET PDB.</p>
 <section id="what-do-we-want-to-automate" class="level1">
 <h1>What do we want to automate</h1>
 <p>Three things:</p>
 <ol type="1">
-<li>Finding of H-Mode
+<li>Finding Steady-states inside H-Mode
 <ul>
-<li>Power threshold</li>
-</ul></li>
-<li>Steady-states
-<ul>
-<li>Tricky</li>
+<li>H-mode is a bit easier</li>
+<li>Steady states will be tricky</li>
 </ul></li>
 <li>ELM timings
 <ul>
@@ -104,17 +172,70 @@ div.csl-indent {
 <section id="finding-h-mode" class="level2">
 <h2 class="anchored" data-anchor-id="finding-h-mode">1. Finding H-mode</h2>
 <p>The amount of power needed to enter H-mode is commonly described as the L-H threshold, or <span class="math inline">\(P_{LH}\)</span>.</p>
-<p>An example of a scaling law derived in terms of machine parameters is given in<span class="citation" data-cites="Martin_2008"><sup><a href="#ref-Martin_2008" role="doc-biblioref">1</a></sup></span>:</p>
+<p>An example of a scaling law derived in terms of machine parameters is given in<span class="citation" data-cites="Martin_2008"><sup><a href="#ref-Martin_2008" role="doc-biblioref">2</a></sup></span>:</p>
 <p><span class="math display">\[P_{\text{LH}} [\text{MW}] = 2.15e^{\pm 0.107} n_{e20}^{0.728 \pm 0.037} B_T^{0.772 \pm 0.031} a^{0.975\pm 0.08} R^{0.999\pm 0.101 }\]</span> where <span class="math inline">\(B_T\)</span> [T], <span class="math inline">\(n_e\)</span> [<span class="math inline">\(10^{20}\)</span> m <span class="math inline">\(^{-2}\)</span>], <span class="math inline">\(a\)</span> [m], <span class="math inline">\(R\)</span> [m] are the magnitude of the toroidal magnetic field, line averaged electron density, major and minor plasma radius, respectively. The shaping parameters are sometimes refered to as <span class="math inline">\(S\)</span>, or parameterized as the surface area. This can be intuitively thought of as given some volume of plasma, with surface area <span class="math inline">\(S\)</span> and density <span class="math inline">\(n\)</span>, that is confined by a magnetic field <span class="math inline">\(B\)</span>, there exists some amount of power needed to excited it to pass into a new regime.</p>
-<p>Thus, we are looking for the times where <span class="math inline">\(P_\text{TOT} \geq P_{\text{LH}}\)</span>, or <span class="math inline">\(\frac{P_\text{TOT}}{P_{\text{LH}}} \geq 1.0\)</span></p>
+<p>Thus, we are looking for the times where the total power injected is greator than <span class="math inline">\(P_\text{LH}\)</span>: <span class="math inline">\(P_\text{TOT} \geq P_{\text{LH}}\)</span>, or <span class="math inline">\(\frac{P_\text{TOT}}{P_{\text{LH}}} \geq 1.0\)</span>.</p>
+<p>For JET, the total power is typically coming from NBI, ICR, and Ohmic heating sources, <span class="math inline">\(P_\text{NBI}, P_\text{ICR}, P_\text{OH}\)</span> and there is some shine through lost deposited on the wall <span class="math inline">\(P_\text{SH}\)</span>, thus <span class="math display">\[P_\text{TOT} =  P_\text{NBI} + P_\text{ICR} + P_\text{OH} - P_\text{SH}\]</span></p>
 <div class="cell" data-execution_count="2">
-<div class="cell-output cell-output-display">
-<p><img src="automating_files/figure-html/cell-3-output-1.png" width="590" height="449"></p>
+<details>
+<summary>Code for finding P_TOT/P_LH</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Dict, List</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scipy.interpolate <span class="im">import</span> interp1d </span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> p_lh_threshold_martin_scaling_from_pulse_dict(pulse_dict: Dict[<span class="bu">str</span>, Dict[<span class="bu">str</span>, np.ndarray]]) <span class="op">-&gt;</span> List[np.ndarray]: </span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">""" Using martin scaling we find the ratio of the PTOT/PLH </span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">    This is done by first interpolating all diagnostics used onto a common time domain </span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">    The common time domain is given by the lowest order sampled parameter used in the martin scaling </span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">    The power variables are then interpolated to the same axis </span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    power_scaling <span class="op">=</span> <span class="kw">lambda</span> n, r, a, b : (<span class="fl">2.14</span>)<span class="op">*</span>(np.exp(<span class="fl">0.107</span>))<span class="op">*</span>(np.power(n<span class="op">*</span><span class="fl">1e-20</span>,<span class="fl">0.728</span>))<span class="op">*</span>(np.power(<span class="bu">abs</span>(b),<span class="fl">0.772</span>))<span class="op">*</span>(np.power(a,<span class="fl">0.975</span>))<span class="op">*</span>(np.power(r,<span class="fl">0.999</span>))</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    lh_threshold_diagnostic_signal_names <span class="op">=</span> [<span class="st">'kg1l/lad3'</span>, <span class="st">'efit/Rgeo'</span>, <span class="st">'efit/ahor'</span>, <span class="st">'magn/BTF'</span>]</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Finds the lowest sampled signal so we can interpolate onto that domain</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    data_size_list <span class="op">=</span> [(diag_sig, signal_dims[<span class="st">'data'</span>].shape) <span class="cf">for</span> diag_sig, signal_dims <span class="kw">in</span> pulse_dict.items() <span class="cf">if</span> diag_sig <span class="kw">in</span> lh_threshold_diagnostic_signal_names]</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    domain_diagnostic, _ <span class="op">=</span> <span class="bu">min</span>(data_size_list, key<span class="op">=</span><span class="kw">lambda</span> t: t[<span class="dv">1</span>]) <span class="co"># https://docs.python.org/3.8/library/functions.html#min</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    diagnostics_to_interpolate <span class="op">=</span> [d <span class="cf">for</span> d <span class="kw">in</span> lh_threshold_diagnostic_signal_names <span class="cf">if</span> d <span class="op">!=</span> domain_diagnostic]</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    time_domain <span class="op">=</span> pulse_dict[domain_diagnostic][<span class="st">'time'</span>].copy()</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    interpolated_dict <span class="op">=</span> {domain_diagnostic: pulse_dict[domain_diagnostic][<span class="st">'data'</span>]}</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> key <span class="kw">in</span> diagnostics_to_interpolate: </span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        _interp <span class="op">=</span> interp1d(pulse_dict[key][<span class="st">'time'</span>], pulse_dict[key][<span class="st">'data'</span>])</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        interp_data <span class="op">=</span> _interp(time_domain)</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        interpolated_dict[key] <span class="op">=</span> interp_data</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    plh_threshold <span class="op">=</span> <span class="fl">1e6</span><span class="op">*</span>power_scaling(<span class="op">*</span>[interpolated_dict[key] <span class="cf">for</span> key <span class="kw">in</span> lh_threshold_diagnostic_signal_names])</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Now to compare against the input power </span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    power_diagnostic_signal_names <span class="op">=</span> [<span class="st">'power/PNBI_TOT'</span>, <span class="st">'power/P_OH'</span>, <span class="st">'power/PICR_TOT'</span>, <span class="st">'nbip/shi'</span>]</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    total_power <span class="op">=</span> np.zeros_like(time_domain)</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> key <span class="kw">in</span> power_diagnostic_signal_names: </span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>        <span class="cf">try</span>: </span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>            _interp <span class="op">=</span> interp1d(pulse_dict[key][<span class="st">'time'</span>], pulse_dict[key][<span class="st">'data'</span>], bounds_error<span class="op">=</span><span class="va">False</span>, fill_value<span class="op">=</span><span class="fl">0.0</span>)</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>            power_interped <span class="op">=</span> _interp(time_domain)</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">except</span> <span class="pp">ValueError</span>: </span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>            power_interped <span class="op">=</span> np.zeros_like(time_domain)</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">except</span> <span class="pp">KeyError</span> <span class="im">as</span> e: </span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> e.args[<span class="dv">0</span>] <span class="op">==</span> <span class="st">'nbip/shi'</span>:</span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>                power_interped <span class="op">=</span> np.zeros_like(time_domain)</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>: </span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>                <span class="cf">raise</span> <span class="pp">KeyError</span>(<span class="st">'pulse_dict does not contain the following necessary dignostics diagnostics: </span><span class="sc">{}</span><span class="st">'</span>.<span class="bu">format</span>(power_diagnostic_signal_names <span class="op">+</span> lh_threshold_diagnostic_signal_names))</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> key <span class="kw">in</span> [<span class="st">'nbip/sh'</span>]: </span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>            total_power <span class="op">-=</span> power_interped</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:     </span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>            total_power <span class="op">+=</span> power_interped</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>    ratio_threshold_total_power <span class="op">=</span> total_power <span class="op">/</span> plh_threshold</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="co"># above_lh_threshold = time_domain[total_power &gt; plh_threshold]</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>    <span class="co"># t_start, t_end = above_lh_threshold[0], above_lh_threshold[-1]</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [time_domain, plh_threshold, ratio_threshold_total_power]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
-</div>
-<div class="cell" data-execution_count="3">
+<div class="cell" data-execution_count="4">
 <div class="cell-output cell-output-display">
-<p><img src="automating_files/figure-html/cell-4-output-1.png" width="469" height="1430"></p>
+<div id="lhratio-pulses" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="automating_files/figure-html/lhratio-pulses-output-1.png" class="img-fluid figure-img"></p>
+<p></p><figcaption class="figure-caption">This approach picks up the L-H transition, but not the back transition. If we were to use this to define the start and end of H-mode, it is prone to the following artifacts: i) When a PINI drops, the <span class="math inline">\(P_{TOT} &gt;= P_{LH}\)</span> can drop below 1, even though we are still in H-mode, ii) near rampdown, any number of the parameters could spike, (see JET #86540 and 83304), iii) at the very beginning, there is a spike in density</figcaption><p></p>
+</figure>
+</div>
 </div>
 </div>
 <section id="but-how-to-get-the-time-windows-for-h-mode" class="level4">
@@ -123,29 +244,99 @@ div.csl-indent {
 <li>Easy (but not entirely accurate): <span class="math inline">\(P_{TOT} &gt;= P_{LH}\)</span>
 <ul>
 <li>This picks up the L-H transition, but not the back transition, so we will need to find the charactaristic time for L-H transition</li>
+<li>This is prone to the following artifacts:
+<ul>
+<li>When a PINI drops, the <span class="math inline">\(P_{TOT} &gt;= P_{LH}\)</span> can drop below 1, even though we are still in H-mode.</li>
+<li>Near rampdown, any number of the parameters could spike, (see JET #86540)</li>
+<li>At the very beginning, there is a spike in density <strong>?from the gas injection?</strong></li>
 </ul></li>
-<li>??: use a change-point detection algorithm to find change points in the martin scaling?</li>
-</ul>
-<section id="details-on-processing" class="level5">
-<h5 class="anchored" data-anchor-id="details-on-processing">Details on processing</h5>
-<ul>
-<li>Well to even plot the scaling law, all the data needs to be on the same axis…
-<ul>
-<li>Interpolate the lowest frequency sampled basis</li>
-<li>Possibly need to interpolate the power parameters themselves also</li>
+<li>Additional flag of <span class="math inline">\(45 &lt; t &lt; 60\)</span> for JET.</li>
 </ul></li>
 </ul>
-</section>
 </section>
 </section>
 <section id="finding-steady-states" class="level2">
 <h2 class="anchored" data-anchor-id="finding-steady-states">2. Finding steady states</h2>
-<p>Idk yet</p>
+<p>Here we want to find periods of near-constant global plasma parameters, namely the stored diamagnetic energy, <span class="math inline">\(W_\text{DIA}\)</span> [J]. The bounds for which a window or period of steady state can occur are made via:</p>
+<ol type="1">
+<li><span class="math inline">\(\frac{P_{TOT}}{P_{LH}} &gt;= 1\)</span></li>
+<li>times of the window <span class="math inline">\(t\)</span> exist between <span class="math inline">\(44 &lt; t &lt; 60\)</span> (for JET)
+<ul>
+<li>This is temporary, but should exclude times during rampdown and rampup where the LH threshold can occur (although this should be investigated?)</li>
+<li>Ideally, we pass a sliding window over the proposed <span class="math inline">\(P_{ratio} &gt; 1\)</span> that removes outliers.</li>
+</ul></li>
+</ol>
+<section id="algorithm-to-determine-where-things-are-in-the-steady-state" class="level4">
+<h4 class="anchored" data-anchor-id="algorithm-to-determine-where-things-are-in-the-steady-state">Algorithm to determine where things are in the steady state</h4>
+<ol type="1">
+<li>Using <a href="https://centre-borelli.github.io/ruptures-docs/"><strong>rupture</strong></a><span class="citation" data-cites="Truong2020"><sup><a href="#ref-Truong2020" role="doc-biblioref">3</a></sup></span>, find the change points in <span class="math inline">\(W_\text{dia}\)</span>
+<ul>
+<li>The change points are separated by a minimum of 0.5 seconds</li>
+</ul></li>
+<li>Filter the change points selected to be those that fall between bounds set above</li>
+<li>The times bewteen change points, i.e., windows, are a steady state if the slope of <span class="math inline">\(W_\text{DIA}\)</span> between the change points is less than <span class="math inline">\(15%\)</span> the mean of the window.</li>
+</ol>
+<div class="cell" data-execution_count="6">
+<details>
+<summary>Code for finding steady states</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> ruptures <span class="im">as</span> rpt </span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Dict, List, Tuple</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> find_steady_state_windows(pulse_dict: Dict[<span class="bu">str</span>, Dict[<span class="bu">str</span>, np.ndarray]]) <span class="op">-&gt;</span> Tuple[List[Tuple[<span class="bu">float</span>, <span class="bu">float</span>]], Tuple[<span class="bu">float</span>, <span class="bu">float</span>], Tuple[np.ndarray, np.ndarray]]: </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">""" Uses ruptures to find steady state windows using the PLH threshold and the diamagnetic energy """</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> <span class="st">'ehtr/wdia'</span> <span class="kw">in</span> pulse_dict.keys(): <span class="cf">raise</span> <span class="pp">KeyError</span>(<span class="st">'must include ehtr/wdia in list of diagnostics to pull'</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    lh_domain, _, ratio_threshold_total_power <span class="op">=</span> p_lh_threshold_martin_scaling_from_pulse_dict(pulse_dict)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    h_mode_window <span class="op">=</span> np.logical_and(ratio_threshold_total_power <span class="op">&gt;</span> <span class="fl">1.0</span>, np.logical_and(lh_domain <span class="op">&gt;</span> <span class="dv">44</span>, lh_domain <span class="op">&lt;</span> <span class="dv">60</span>))</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    t_start_hmode, t_end_hmode <span class="op">=</span> lh_domain[h_mode_window][<span class="dv">0</span>], lh_domain[h_mode_window][<span class="op">-</span><span class="dv">1</span>]</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    time, data <span class="op">=</span> example_dict[<span class="st">'ehtr/wdia'</span>][<span class="st">'time'</span>], example_dict[<span class="st">'ehtr/wdia'</span>][<span class="st">'data'</span>]</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># window_size should be like 1248</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    dt <span class="op">=</span> (time[<span class="op">-</span><span class="dv">1</span>] <span class="op">-</span> time[<span class="dv">0</span>])<span class="op">/</span><span class="bu">len</span>(time)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    time_window_size <span class="op">=</span> <span class="fl">0.5</span> <span class="co"># 0.5 seconds </span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    window_size <span class="op">=</span> <span class="bu">int</span>(<span class="fl">0.5</span> <span class="op">/</span> dt)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    algo <span class="op">=</span> rpt.Pelt(model<span class="op">=</span><span class="st">'l2'</span>, min_size<span class="op">=</span>window_size).fit(data)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    n, dim, sigma <span class="op">=</span> <span class="bu">len</span>(time), <span class="dv">1</span>, <span class="dv">1</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    pen <span class="op">=</span> np.log(n) <span class="op">*</span> dim <span class="op">*</span> sigma<span class="op">**</span><span class="dv">2</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    my_bkps <span class="op">=</span> algo.predict(pen<span class="op">=</span>pen)</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    t_bkps <span class="op">=</span> np.array([time[bkp] <span class="cf">for</span> bkp <span class="kw">in</span> my_bkps <span class="cf">if</span> bkp <span class="op">!=</span> <span class="bu">len</span>(time)])</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    t_bkps_in_hmode <span class="op">=</span> t_bkps[np.logical_and(t_bkps <span class="op">&gt;</span> t_start_hmode, t_bkps <span class="op">&lt;=</span> t_end_hmode)]</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    t_window_steady_states <span class="op">=</span> []</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> t_idx, t <span class="kw">in</span> <span class="bu">enumerate</span>(t_bkps_in_hmode): </span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> t_idx <span class="op">==</span> <span class="dv">0</span>: </span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>            t_beg, t_end <span class="op">=</span> t_start_hmode, t</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> t_idx <span class="op">==</span> <span class="bu">len</span>(t_bkps_in_hmode): </span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>            t_beg, t_end <span class="op">=</span> t, t_end_hmode</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>: </span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>            t_beg, t_end <span class="op">=</span> t_bkps_in_hmode[t_idx<span class="op">-</span><span class="dv">1</span>], t</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>        _window_bool <span class="op">=</span> np.logical_and(time <span class="op">&gt;=</span> t_beg, time <span class="op">&lt;=</span> t_end)</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        slope <span class="op">=</span> (data[_window_bool][<span class="op">-</span><span class="dv">1</span>] <span class="op">-</span> data[_window_bool][<span class="dv">0</span>]) <span class="op">/</span> (time[_window_bool][<span class="op">-</span><span class="dv">1</span>] <span class="op">-</span> time[_window_bool][<span class="dv">0</span>])</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">abs</span>(slope <span class="op">/</span> data[_window_bool].mean()) <span class="op">&lt;</span> <span class="fl">0.15</span>: </span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>            t_window_steady_states.append((t_beg, t_end))</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> t_window_steady_states, (t_start_hmode, t_end_hmode), (lh_domain, ratio_threshold_total_power)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell" data-execution_count="7">
+<div class="cell-output cell-output-display">
+<p><img src="automating_files/figure-html/cell-8-output-1.png" class="img-fluid"></p>
+</div>
+</div>
+<p>How do these windows with other parameters? We are often interested in what happens when the power changes, or gas puff, etc.,</p>
+<ul>
+<li>Machine parameters (heirarchial structure?)
+<ul>
+<li><strong>Shaping</strong>: <span class="math inline">\(R\)</span>, <span class="math inline">\(a\)</span>, <span class="math inline">\(\delta_u\)</span>, <span class="math inline">\(\delta_o\)</span>, <span class="math inline">\(V_P\)</span>, <strong>Gas</strong>: <span class="math inline">\(\Gamma_D\)</span>, <strong>Power</strong>: Defined above, <strong>Magnetic</strong>: <span class="math inline">\(q_{95}\)</span>, <span class="math inline">\(I_P\)</span>, <span class="math inline">\(B_T\)</span></li>
+</ul></li>
+<li>Global Parameters
+<ul>
+<li>Radiated power from bolometer, Diamagnetic Stored energy of the plasma, Line averaged density, Average inner/outer Be II photon flux (ELMs)</li>
+</ul></li>
+</ul>
+</section>
 </section>
 <section id="elm-timings" class="level2">
 <h2 class="anchored" data-anchor-id="elm-timings">3. ELM Timings</h2>
-<p>Here we have some attempts by others<span class="citation" data-cites="ELM_TIMINGS_PREPRINT"><sup><a href="#ref-ELM_TIMINGS_PREPRINT" role="doc-biblioref">2</a></sup></span></p>
-<p>The algorithm implemented in<span class="citation" data-cites="ELM_TIMINGS_PREPRINT"><sup><a href="#ref-ELM_TIMINGS_PREPRINT" role="doc-biblioref">2</a></sup></span> is simplified as follows:</p>
+<p>The algorithm implemented in<span class="citation" data-cites="ELM_TIMINGS_PREPRINT"><sup><a href="#ref-ELM_TIMINGS_PREPRINT" role="doc-biblioref">4</a></sup></span> is simplified as follows:</p>
 <ul>
 <li>‘up-sample’ the signals
 <ul>
@@ -158,16 +349,26 @@ div.csl-indent {
 <li><code>scipy.signal.find_peaks</code></li>
 </ul></li>
 </ul>
+</section>
+<section id="bayesian-fitting" class="level2">
+<h2 class="anchored" data-anchor-id="bayesian-fitting">4. Bayesian fitting</h2>
+<p>this isn’t really automating things but rather a better way to fit.</p>
 
 </section>
 </section>
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body" data-line-spacing="2" role="doc-bibliography">
+<div id="ref-Frassinetti2021" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">1. </div><div class="csl-right-inline">Frassinetti, L. <em>et al.</em> <a href="https://doi.org/10.1088/1741-4326/abb79e">Pedestal structure, stability and scalings in JET-ILW: The EUROfusion JET-ILW pedestal database</a>. <em>Nuclear Fusion</em> <strong>61</strong>, (2021).</div>
+</div>
 <div id="ref-Martin_2008" class="csl-entry" role="doc-biblioentry">
-<div class="csl-left-margin">1. </div><div class="csl-right-inline">Martin, Y. R. &amp; Takizuka, T. <a href="https://doi.org/10.1088/1742-6596/123/1/012033">Power requirement for accessing the h-mode in ITER</a>. <em>Journal of Physics: Conference Series</em> <strong>123</strong>, 012033 (2008).</div>
+<div class="csl-left-margin">2. </div><div class="csl-right-inline">Martin, Y. R. &amp; Takizuka, T. <a href="https://doi.org/10.1088/1742-6596/123/1/012033">Power requirement for accessing the h-mode in ITER</a>. <em>Journal of Physics: Conference Series</em> <strong>123</strong>, 012033 (2008).</div>
+</div>
+<div id="ref-Truong2020" class="csl-entry" role="doc-biblioentry">
+<div class="csl-left-margin">3. </div><div class="csl-right-inline">Truong, C., Oudre, L. &amp; Vayatis, N. <a href="https://doi.org/10.1016/J.SIGPRO.2019.107299">Selective review of offline change point detection methods</a>. <em>Signal Processing</em> <strong>167</strong>, (2020).</div>
 </div>
 <div id="ref-ELM_TIMINGS_PREPRINT" class="csl-entry" role="doc-biblioentry">
-<div class="csl-left-margin">2. </div><div class="csl-right-inline">O’Shea, F. H., Joung, S., Smith, D. R. &amp; Coffee, R. Automatic identification of edge localized modes in the DIII-d tokamak. (2022) doi:<a href="https://doi.org/10.48550/ARXIV.2212.08745">10.48550/ARXIV.2212.08745</a>.</div>
+<div class="csl-left-margin">4. </div><div class="csl-right-inline">O’Shea, F. H., Joung, S., Smith, D. R. &amp; Coffee, R. Automatic identification of edge localized modes in the DIII-d tokamak. (2022) doi:<a href="https://doi.org/10.48550/ARXIV.2212.08745">10.48550/ARXIV.2212.08745</a>.</div>
 </div>
 </div></section></div></main>
 <!-- /main column -->
