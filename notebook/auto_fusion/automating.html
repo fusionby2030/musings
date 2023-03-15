@@ -240,19 +240,6 @@ div.csl-indent {
 </div>
 <section id="but-how-to-get-the-time-windows-for-h-mode" class="level4">
 <h4 class="anchored" data-anchor-id="but-how-to-get-the-time-windows-for-h-mode">But how to get the time windows for H-mode?</h4>
-<ul>
-<li>Easy (but not entirely accurate): <span class="math inline">\(P_{TOT} &gt;= P_{LH}\)</span>
-<ul>
-<li>This picks up the L-H transition, but not the back transition, so we will need to find the charactaristic time for L-H transition</li>
-<li>This is prone to the following artifacts:
-<ul>
-<li>When a PINI drops, the <span class="math inline">\(P_{TOT} &gt;= P_{LH}\)</span> can drop below 1, even though we are still in H-mode.</li>
-<li>Near rampdown, any number of the parameters could spike, (see JET #86540)</li>
-<li>At the very beginning, there is a spike in density <strong>?from the gas injection?</strong></li>
-</ul></li>
-<li>Additional flag of <span class="math inline">\(45 &lt; t &lt; 60\)</span> for JET.</li>
-</ul></li>
-</ul>
 </section>
 </section>
 <section id="finding-steady-states" class="level2">
@@ -262,7 +249,7 @@ div.csl-indent {
 <li><span class="math inline">\(\frac{P_{TOT}}{P_{LH}} &gt;= 1\)</span></li>
 <li>times of the window <span class="math inline">\(t\)</span> exist between <span class="math inline">\(44 &lt; t &lt; 60\)</span> (for JET)
 <ul>
-<li>This is temporary, but should exclude times during rampdown and rampup where the LH threshold can occur (although this should be investigated?)</li>
+<li>This is temporary, but should exclude times during rampdown and rampup where the LH-HL threshold can occur (although this should be investigated?)</li>
 <li>Ideally, we pass a sliding window over the proposed <span class="math inline">\(P_{ratio} &gt; 1\)</span> that removes outliers.</li>
 </ul></li>
 </ol>
@@ -349,6 +336,15 @@ div.csl-indent {
 <li><code>scipy.signal.find_peaks</code></li>
 </ul></li>
 </ul>
+<div class="cell" data-execution_count="8">
+<div class="cell-output cell-output-stdout">
+<pre><code>(10000,)
+(10000,)</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="automating_files/figure-html/cell-9-output-2.png" class="img-fluid"></p>
+</div>
+</div>
 </section>
 <section id="bayesian-fitting" class="level2">
 <h2 class="anchored" data-anchor-id="bayesian-fitting">4. Bayesian fitting</h2>

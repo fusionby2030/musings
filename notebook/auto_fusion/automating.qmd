@@ -14,10 +14,10 @@ import numpy as np
 from io import BytesIO
 from helper_functions import get_allas_connection, get_dict_params
 import matplotlib.pyplot as plt 
-
+import matplotlib.gridspec as gridspec
 conn = get_allas_connection()
 raw_dir = '/home/adam/ENR_Sven/moxie/data/raw/RAW_JET_PULSES'
-raw_dir = '/home/kitadam/ENR_Sven/moxie/data/raw/RAW_JET_PULSES'
+# raw_dir = '/home/kitadam/ENR_Sven/moxie/data/raw/RAW_JET_PULSES'
 
 # rel_dir = '/home/kitadam/ENR_Sven/supervised_learning_jetpdb/data/jet-all-full.csv'
 # jet_pdb_all = pd.read_csv(rel_dir)
@@ -197,20 +197,12 @@ plt.show()
 ```
 #### But how to get the time windows for H-mode? 
 
-- Easy (but not entirely accurate): $P_{TOT} >= P_{LH}$ 
-    - This picks up the L-H transition, but not the back transition, so we will need to find the charactaristic time for L-H transition
-    - This is prone to the following artifacts: 
-        - When a PINI drops, the $P_{TOT} >= P_{LH}$ can drop below 1, even though we are still in H-mode. 
-        - Near rampdown, any number of the parameters could spike, (see JET #86540) 
-        - At the very beginning, there is a spike in density __?from the gas injection?__
-    - Additional flag of $45 < t < 60$ for JET. 
-
 ## 2. Finding steady states
 Here we want to find periods of near-constant global plasma parameters, namely the stored diamagnetic energy, $W_\text{DIA}$ [J]. The bounds for which a window or period of steady state can occur are made via: 
 
 1. $\frac{P_{TOT}}{P_{LH}} >= 1$ 
 2. times of the window $t$ exist between $44 < t < 60$ (for JET)
-    - This is temporary, but should exclude times during rampdown and rampup where the LH threshold can occur (although this should be investigated?)
+    - This is temporary, but should exclude times during rampdown and rampup where the LH-HL threshold can occur (although this should be investigated?)
     - Ideally, we pass a sliding window over the proposed $P_{ratio} > 1$ that removes outliers.  
 
 
@@ -315,7 +307,7 @@ diagnostic_signal_names = list(set(machine_param_signals + global_param_signals 
 
 # fig, axs = plt.subplots(ncols=2, nrows=4, constrained_layout=True, figsize=(10, 10))
 
-import matplotlib.gridspec as gridspec
+
 fig = plt.figure(figsize=(15, 15))
 gs_init = gridspec.GridSpec(3, 3, figure=fig)
 
@@ -382,6 +374,79 @@ The algorithm implemented in @ELM_TIMINGS_PREPRINT is simplified as follows:
 - take first derivative 'up-sampled' signal.
 - From each differentiated signal, the $1-\nu$ largest points are labeled as canidates, where $\nu$ is a percentile filter for thresholding (optimal 0.997)
     - `scipy.signal.find_peaks`
+
+```{python}
+"""
+fig = plt.figure(figsize=(15, 15))
+gs_init = gridspec.GridSpec(2, 2, figure=fig)
+
+for k, shot_number in enumerate(sample_shot_nums[:4]): 
+    example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
+
+    col = 0 if k<= 1 else 1 
+    row = k % 2
+    gs_pulse = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs_init[k], hspace=0.0)
+    
+    for idx, param in enumerate(elm_param_signals): 
+        ax = fig.add_subplot(gs_pulse[idx])
+        if idx == 0: 
+            ax.set_title(f'JET #{shot_number}')
+        ax.plot(example_dict[param]['time'], example_dict[param]['data'], label=param.split('/')[-1])
+"""
+machine_param_signals = ['efit/Rgeo','efit/k', 'efit/ahor', 'efit/delRoben', 'efit/delRuntn', 'efit/Vol', 'gas/D_tot', 'magn/IpiFP', 'magn/q95',  'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT']
+global_param_signals = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3'] 
+elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
+diagnostic_signal_names = list(set(machine_param_signals + global_param_signals + elm_param_signals))
+
+shot_number = sample_shot_nums[1]
+example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
+
+t_window_steady_states, (t_start_hmode, t_end_hmode), (lh_domain, ratio_threshold_total_power) = find_steady_state_windows(example_dict)
+from scipy.fft import dct, idct
+
+fig, axs = plt.subplots(2, 1, figsize=(10, 10), sharex='col')
+
+for idx, param in enumerate(elm_param_signals): 
+    ax = axs[idx]
+    if idx == 0: 
+        ax.set_title(f'JET #{shot_number}')
+
+    time, data = example_dict[param]['time'], example_dict[param]['data']
+    ax.plot(time, data, label=param.split('/')[-1])
+
+    ax.set_xlim(t_start_hmode -1, t_end_hmode+1)
+
+    for (t_beg, t_end) in t_window_steady_states: 
+        _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+        ax.plot(time[_window_bool], data[_window_bool], color='violet')
+        ax.axvline(t_beg, color='green', ls='--')
+        ax.axvline(t_end, color='green', ls='--')
+
+    ax.legend()
+
+    inset_1 = ax.inset_axes([0.1, 0.5, 0.3, 0.3])
+    (t_beg, t_end) = t_window_steady_states[0]
+    _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+    _time, _data = time[_window_bool], data[_window_bool]
+    inset_1.plot(_time, _data)
+    # inset_1.plot(_time, np.diff(_data, prepend=0.0))
+    upsampled = np.zeros(10000)
+    upsampled[:len(_data)] = dct(_data-data.mean() / data.std())
+    print(idct(upsampled).shape)
+    upsampled_idct = idct(upsampled, n=len(_time))
+    inset_1.plot(_time, upsampled_idct)
+    ax.indicate_inset_zoom(inset_1, edgecolor="black")
+
+    inset = ax.inset_axes([0.6, 0.2, 0.3, 0.3])
+    (t_beg, t_end) = t_window_steady_states[-1]
+    _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+    _time, _data = time[_window_bool], data[_window_bool]
+    inset.plot(_time, _data)
+    ax.indicate_inset_zoom(inset, edgecolor="black")
+   
+
+plt.show()
+```
 
 ## 4. Bayesian fitting 
 
