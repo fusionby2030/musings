@@ -1,0 +1,11 @@
+font.size : 20
+axes.titlesize : 20
+axes.labelsize : 25
+xtick.labelsize : 20
+ytick.labelsize : 20
+legend.fontsize : 15
+figure.titlesize : 30
+figure.facecolor : efd7a7
+axes.facecolor : efd7a7
+axes.edgecolor : 000000
+figure.dpi : 400
