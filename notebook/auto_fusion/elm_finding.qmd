@@ -1,0 +1,251 @@
+---
+title: "ELM Determination"
+
+execute: 
+  echo: false
+  warning: false
+
+---
+
+
+```{python}
+import os 
+import numpy as np
+from io import BytesIO
+from helper_functions import get_allas_connection, get_dict_params
+import matplotlib.pyplot as plt 
+import matplotlib.gridspec as gridspec
+from physics_functions import find_steady_state_windows, p_lh_threshold_martin_scaling_from_pulse_dict
+conn = get_allas_connection()
+# raw_dir = '/home/adam/ENR_Sven/moxie/data/raw/RAW_JET_PULSES'
+raw_dir = '/home/kitadam/ENR_Sven/moxie/data/raw/RAW_JET_PULSES'
+
+# rel_dir = '/home/kitadam/ENR_Sven/supervised_learning_jetpdb/data/jet-all-full.csv'
+# jet_pdb_all = pd.read_csv(rel_dir)
+shot_list = [fname for fname in os.listdir(raw_dir)]
+import random 
+random.seed(44)
+# sample_shot_nums = random.sample(shot_list, k=5)
+
+if os.getenv('PLOTSTYLE') is not None: 
+    plt.style.use(os.getenv('PLOTSTYLE'))
+
+machine_param_signals = ['efit/Rgeo','efit/k', 'efit/ahor', 'efit/delRoben', 'efit/delRuntn', 'efit/Vol', 'gas/D_tot', 'magn/IpiFP', 'magn/q95',  'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT']
+global_param_signals = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3'] 
+elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
+diagnostic_signal_names = list(set(machine_param_signals + global_param_signals + elm_param_signals))
+
+sample_shot_nums = [] 
+
+for idx in random.sample(range(len(shot_list)), len(shot_list)): 
+    if len(sample_shot_nums) == 9: 
+        break 
+    sample_shot = shot_list[idx]
+    if get_dict_params(sample_shot, diagnostic_signal_names, conn) is not None: 
+        sample_shot_nums.append(sample_shot)
+
+```
+
+```{python}
+
+"""
+fig, axs = plt.subplots(2, 1, figsize=(10, 10), sharex='col')
+
+for idx, param in enumerate(elm_param_signals): 
+    ax = axs[idx]
+    if idx == 0: 
+        ax.set_title(f'JET #{shot_number}')
+
+    time, data = example_dict[param]['time'], example_dict[param]['data']
+    ax.plot(time, data, label=param.split('/')[-1])
+
+    ax.set_xlim(t_start_hmode -1, t_end_hmode+1)
+
+    for (t_beg, t_end) in t_window_steady_states: 
+        _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+        ax.plot(time[_window_bool], data[_window_bool], color='violet')
+        ax.axvline(t_beg, color='green', ls='--')
+        ax.axvline(t_end, color='green', ls='--')
+
+    ax.legend()
+
+    inset_1 = ax.inset_axes([0.1, 0.5, 0.3, 0.3])
+    (t_beg, t_end) = t_window_steady_states[0]
+    _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+    _time, _data = time[_window_bool], data[_window_bool]
+    inset_1.plot(_time, _data)
+    # inset_1.plot(_time, np.diff(_data, prepend=0.0))
+    upsampled = np.zeros(10000)
+    upsampled[:len(_data)] = dct(_data-data.mean() / data.std())
+    # print(idct(upsampled).shape)
+    upsampled_idct = idct(upsampled, n=len(_time))
+    inset_1.plot(_time, upsampled_idct)
+    ax.indicate_inset_zoom(inset_1, edgecolor="black")
+
+    inset = ax.inset_axes([0.6, 0.2, 0.3, 0.3])
+    (t_beg, t_end) = t_window_steady_states[-1]
+    _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+    _time, _data = time[_window_bool], data[_window_bool]
+    inset.plot(_time, _data)
+    ax.indicate_inset_zoom(inset, edgecolor="black")
+
+plt.show()
+"""
+machine_param_signals = ['efit/Rgeo','efit/k', 'efit/ahor', 'efit/delRoben', 'efit/delRuntn', 'efit/Vol', 'gas/D_tot', 'magn/IpiFP', 'magn/q95',  'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT']
+global_param_signals = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3'] 
+elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
+diagnostic_signal_names = list(set(machine_param_signals + global_param_signals + elm_param_signals))
+
+shot_number = sample_shot_nums[1]
+
+from scipy.fft import dct, idct, fft, fftfreq
+from scipy import signal as sig
+from typing import Dict
+def get_elm_timings_from_pulse_dict(pulse_dict: Dict[str, Dict[str, np.ndarray]], param='edg8/tbeo'): 
+    t_window_steady_states, (t_start_hmode, t_end_hmode), (lh_domain, ratio_threshold_total_power) = find_steady_state_windows(pulse_dict)
+    elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
+
+    elm_timings = []
+    time, data = example_dict[param]['time'], example_dict[param]['data']
+    for n, (t_beg, t_end) in enumerate(t_window_steady_states): 
+        _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+        _time, _data = time[_window_bool], data[_window_bool]
+        N = len(_time)
+        T = np.diff(_time).mean() 
+        _mean, _std = _data.mean(), _data.std()
+        # To get rid of the close to 0 frequency in the fft, we subtract the mean and divide by std. 
+        tbeo_dat_normed = (_data - _mean)/_std
+        yf_og = fft(tbeo_dat_normed)
+        xf = fftfreq(N, T)[:N//2]
+
+        likely_freq_og = xf[np.argmax(2.0/N*np.abs(yf_og[0:N//2]))]
+        likely_freq_time_og = 1.0/ likely_freq_og
+        num_samples_patience_og = int(likely_freq_time_og / T)
+
+        peaks_og, properties_og = sig.find_peaks(_data,  height=_mean+_std, distance=num_samples_patience_og - (num_samples_patience_og // 3)) # TODO: Free parameter here! 
+        window_elm_timings = _time[peaks_og]
+        elm_timings.append(window_elm_timings)
+    return t_window_steady_states, elm_timings, (t_start_hmode, t_end_hmode)
+
+# fig, axs = plt.subplots(2, len(t_window_steady_states)+1, figsize=(18, 10), sharex='col')
+
+for shot_number in sample_shot_nums:
+    example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
+    for param in ['edg8/tbeo', 'edg8/tbei']:
+        t_window_steady_states, elm_timings_per_window, (t_start_hmode, t_end_hmode) = get_elm_timings_from_pulse_dict(example_dict, param)
+        fig = plt.figure(figsize=(20, 2.5))
+        
+        gs_init = gridspec.GridSpec(1, len(t_window_steady_states)+1)
+
+        gs00 = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=gs_init[0])
+        ax1 = fig.add_subplot(gs00[0])
+        # param = 'edg8/tbeo'
+        time, data = example_dict[param]['time'], example_dict[param]['data']
+
+        ax1.plot(time, data, label=param.split('/')[-1])
+        ax1.set_xlim(t_start_hmode -1, t_end_hmode+1)
+
+        for n, ((t_beg, t_end), elm_timings) in enumerate(zip(t_window_steady_states, elm_timings_per_window)): 
+            _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+            _time, _data = time[_window_bool], data[_window_bool]
+            _mean, _std = _data.mean(), _data.std()
+            ax1.plot(_time, _data, color='violet')
+            ax1.axvline(t_beg, color='green', ls='--')
+            ax1.axvline(t_end, color='green', ls='--')
+
+            gs0n = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=gs_init[n+1])
+            ax = fig.add_subplot(gs0n[0])
+            ax.plot(_time, _data, color='violet')
+            ax.set_title(f'{t_end - t_beg:.2}s')
+            ax.vlines(elm_timings, min(_data), _mean+_std, color='black', alpha=0.5)
+            ax.set_yticks([], [])
+            ax.set_xticks([t_beg, t_end], [f'{t_beg:.4}', f'{t_end:.4}'])
+            ax.set_xlim(t_beg -0.1, t_end+0.1)
+            print(param, n, np.array(elm_timings).round(decimals=2))
+        fig.suptitle(f'{shot_number}' + param.split('/')[-1])
+    plt.show()
+```
+
+```{python}
+#| eval: false
+
+for shot_number in sample_shot_nums:
+    example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
+
+    t_window_steady_states, (t_start_hmode, t_end_hmode), (lh_domain, ratio_threshold_total_power) = find_steady_state_windows(example_dict)
+    
+    fig = plt.figure(figsize=(20, 15))
+
+    gs_init = gridspec.GridSpec(2, len(t_window_steady_states)+1, hspace=0.1)
+
+    for idx, param in enumerate(elm_param_signals): 
+        gs00 = gridspec.GridSpecFromSubplotSpec(1, 1, subplot_spec=gs_init[idx, 0])
+        ax1 = fig.add_subplot(gs00[0])
+        time, data = example_dict[param]['time'], example_dict[param]['data']
+        # ax = axs[idx, 0]
+        ax1.plot(time, data, label=param.split('/')[-1])
+        ax1.set_xlim(t_start_hmode -1, t_end_hmode+1)
+
+        
+
+        for n, (t_beg, t_end) in enumerate(t_window_steady_states): 
+            _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+            _time, _data = time[_window_bool], data[_window_bool]
+            ax1.plot(_time, _data, color='violet')
+            ax1.axvline(t_beg, color='green', ls='--')
+            ax1.axvline(t_end, color='green', ls='--')
+        
+            # ax = axs[idx, n + 1]
+            gs0n = gridspec.GridSpecFromSubplotSpec(4, 1, subplot_spec=gs_init[idx, n+1], hspace=0.0)
+            axes = [fig.add_subplot(gs0n[i]) for i in range(4)]
+            ax = axes[0] # fig.add_subplot(gs0n[0])
+            
+            ax.plot(_time, _data, color='violet')
+            ax.set_title(f'{t_end - t_beg:.2}s')
+
+            ax = axes[1] # fig.add_subplot(gs0n[1])
+            dber_time, dber_data = _time[:-1], np.abs(np.diff(_data))
+            ax.plot(dber_time, dber_data, color='orange')
+
+            ax = axes[2] # fig.add_subplot(gs0n[2])
+            perc99 = np.percentile(dber_data, 97.77, keepdims=True)
+            filtered_dber_data = np.clip(dber_data, a_min=perc99,a_max=None)
+            ax.plot(dber_time, filtered_dber_data, color='black')
+            
+            ax = axes[3] # fig.add_subplot(gs0n[3])
+            # peaks_filtered, properties = sig.find_peaks(filtered_dber_data)
+            # elm_timings = dber_time[peaks_filtered]
+            N = len(_time)
+            T = np.diff(_time).mean() # tbeo_time[1] - tbeo_time[0] NB: Some reason no
+
+            _mean, _std = _data.mean(), _data.std()
+            # To get rid of the close to 0 frequency in the fft, we subtract the mean and divide by std. 
+
+            tbeo_dat_normed = (_data - _mean)/_std
+            yf_og = fft(tbeo_dat_normed)
+            xf = fftfreq(N, T)[:N//2]
+
+            likely_freq_og = xf[np.argmax(2.0/N*np.abs(yf_og[0:N//2]))]
+            likely_freq_time_og = 1.0/ likely_freq_og
+            num_samples_patience_og = int(likely_freq_time_og / T)
+
+            peaks_og, properties_og = sig.find_peaks(_data,  height=_mean+_std, distance=num_samples_patience_og - (num_samples_patience_og // 3)) # 
+            # TODO: FREE PARAMETER HERE
+            elm_timings = _time[peaks_og]
+
+            ax.vlines(elm_timings, 0.25, 1.25, color='black')
+            ax = axes[0] # fig.add_subplot(gs0n[0])
+            ax.vlines(elm_timings, 0.25, _mean+_std, color='black', alpha=0.5)
+
+            for ax in axes[:-1]: 
+                ax.set_xticks([], [])            
+            for ax in axes: 
+                ax.set_yticks([], [])
+                ax.set_xlim(t_beg - 0.1, t_end +0.1)
+
+        ax1.legend()
+    fig.suptitle(f'JET {shot_number}')
+    plt.show()
+
+
+```

@@ -1,4 +1,4 @@
-from typing import Union, Dict, List
+from typing import Dict, List
 import swiftclient
 from io import BytesIO
 import numpy as np 
@@ -21,8 +21,6 @@ def get_allas_connection() -> swiftclient.Connection:
         os_options=_os_options,
         auth_version=_auth_version
     )
-
-
     return conn  
 
 from typing import List, Dict, Optional
@@ -37,7 +35,7 @@ def get_dict_params(shot_number: int, diagnostic_signal_names: List[str], conn: 
             try: 
                 my_obj = conn.get_object(bucket_name, object_name)[1]       
             except swiftclient.ClientException as e: 
-                # print(f'Pulse did not have {object_name}!, returning None')
+                print(f'Pulse did not have {object_name}!, returning None')
                 return None
             data = np.load(BytesIO(my_obj), allow_pickle=True)
             if diagnostic in ['efit', 'power', 'magn', 'gas']: 

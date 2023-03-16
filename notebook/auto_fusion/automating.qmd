@@ -11,23 +11,37 @@ execute:
 ```{python}
 import os 
 import numpy as np
-from io import BytesIO
 from helper_functions import get_allas_connection, get_dict_params
 import matplotlib.pyplot as plt 
 import matplotlib.gridspec as gridspec
 conn = get_allas_connection()
-raw_dir = '/home/adam/ENR_Sven/moxie/data/raw/RAW_JET_PULSES'
-# raw_dir = '/home/kitadam/ENR_Sven/moxie/data/raw/RAW_JET_PULSES'
+# raw_dir = '/home/adam/ENR_Sven/moxie/data/raw/RAW_JET_PULSES'
+raw_dir = '/home/kitadam/ENR_Sven/moxie/data/raw/RAW_JET_PULSES'
 
 # rel_dir = '/home/kitadam/ENR_Sven/supervised_learning_jetpdb/data/jet-all-full.csv'
 # jet_pdb_all = pd.read_csv(rel_dir)
 shot_list = [fname for fname in os.listdir(raw_dir)]
 import random 
-random.seed(44)
-sample_shot_nums = random.sample(shot_list, k=5)
 
+random.seed(4)
 if os.getenv('PLOTSTYLE') is not None: 
     plt.style.use(os.getenv('PLOTSTYLE'))
+
+machine_param_signals = ['efit/Rgeo','efit/k', 'efit/ahor', 'efit/delRoben', 'efit/delRuntn', 'efit/Vol', 'gas/D_tot', 'magn/IpiFP', 'magn/q95',  'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT']
+global_param_signals = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3'] 
+elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
+diagnostic_signal_names = list(set(machine_param_signals + global_param_signals + elm_param_signals))
+
+sample_shot_nums, sample_shot_dicts = [], []
+for idx in random.sample(range(len(shot_list)), len(shot_list)): 
+    if len(sample_shot_nums) == 9: 
+        break 
+    sample_shot = shot_list[idx]
+    shot_dict = get_dict_params(sample_shot, diagnostic_signal_names, conn)
+    if  shot_dict is not None: 
+        sample_shot_dicts.append(shot_dict)
+        sample_shot_nums.append(sample_shot)
+
 ```
 
 Datasets in fusion are commonly but finding relevant time windows of desired signals.  
@@ -41,18 +55,15 @@ Take for example, the JET Pedestal Database @Frassinetti2021.
 
 So we want to do this process, automatically and possibly compare models trained on JET PDB vs automated JET PDB. 
 
+
 # What do we want to automate
 
-Three things: 
+We want H-mode electron density, temperature, and pressure measurements for pedestal analysis at/near the KBM-PB stability boundrary. To do so, we need to identify time windows of near constant or steady state plasma and machine parameters, then find identify when ELM's occured, and found profile measurements that land near the end of an ELM cycle $(75-99\%)$. 
 
-1. Finding Steady-states inside H-Mode 
-    - H-mode is a bit easier 
-    - Steady states will be tricky 
-2. ELM timings 
-    - Also Tricky 
-3. Curve fitting
-    - Bayesian :--)
-
+1. Finding H-Mode 
+2. Finding Steady-states inside H-mode
+3. ELM timings 
+4. Curve fitting
 
 ## 1. Finding H-mode
 
@@ -73,12 +84,15 @@ For JET, the total power is typically coming from NBI, ICR, and Ohmic heating so
 #| code-summary: "Code for finding P_TOT/P_LH"
 from typing import Dict, List
 from scipy.interpolate import interp1d 
+
 def p_lh_threshold_martin_scaling_from_pulse_dict(pulse_dict: Dict[str, Dict[str, np.ndarray]]) -> List[np.ndarray]: 
     """ Using martin scaling we find the ratio of the PTOT/PLH 
     This is done by first interpolating all diagnostics used onto a common time domain 
     The common time domain is given by the lowest order sampled parameter used in the martin scaling 
 
     The power variables are then interpolated to the same axis 
+
+    returns the time domain for the lh threshold, plh [MW], the ratio of ptot/plh
     """
     power_scaling = lambda n, r, a, b : (2.14)*(np.exp(0.107))*(np.power(n*1e-20,0.728))*(np.power(abs(b),0.772))*(np.power(a,0.975))*(np.power(r,0.999))
     lh_threshold_diagnostic_signal_names = ['kg1l/lad3', 'efit/Rgeo', 'efit/ahor', 'magn/BTF']
@@ -119,15 +133,11 @@ def p_lh_threshold_martin_scaling_from_pulse_dict(pulse_dict: Dict[str, Dict[str
     # t_start, t_end = above_lh_threshold[0], above_lh_threshold[-1]
     return [time_domain, plh_threshold, ratio_threshold_total_power]
 
+
 ```
 
 ```{python}
 #| eval: false
-
-
-# diagnostic_names = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3', 'nbip/shi', 'efit/Rgeo', 'efit/ahor', 'magn/BTF', ]
-# lh_threshold_diagnostic_signal_names = ['kg1l/lad3', 'efit/Rgeo', 'efit/ahor', 'magn/BTF', '']
-diagnostic_signal_names = ['kg1l/lad3', 'efit/Rgeo', 'efit/ahor', 'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT', 'nbip/shi']
 shot_number = 81768
 
 example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
@@ -148,24 +158,12 @@ plt.show()
 #| label: lhratio-pulses
 #| fig-cap: "This approach picks up the L-H transition, but not the back transition. If we were to use this to define the start and end of H-mode, it is prone to the following artifacts: i) When a PINI drops, the $P_{TOT} >= P_{LH}$ can drop below 1, even though we are still in H-mode, ii) near rampdown, any number of the parameters could spike, (see JET #86540 and 83304), iii) at the very beginning, there is a spike in density"
 
-martin_scaling_signal_names = ['kg1l/lad3', 'efit/Rgeo', 'efit/ahor', 'magn/BTF']
-power_signal_names = ['power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT', 'nbip/shi']
-diagnostic_signal_names =  [*martin_scaling_signal_names, *power_signal_names]
-
 # sample_shot_nums = random.sample(shot_list, k=5)
-sample_shot_nums = [] 
 
-for idx in random.sample(range(len(shot_list)), len(shot_list)): 
-    if len(sample_shot_nums) == 9: 
-        break 
-    sample_shot = shot_list[idx]
-    if get_dict_params(sample_shot, diagnostic_signal_names, conn) is not None: 
-        sample_shot_nums.append(sample_shot)
 
 fig1, f1_axes = plt.subplots(ncols=3, nrows=3, constrained_layout=True, figsize=(10, 10), sharex=True)
 f1_axes = f1_axes.ravel()
-for i, shot_number in enumerate(sample_shot_nums): 
-    example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
+for i, (shot_number, example_dict) in enumerate(zip(sample_shot_nums, sample_shot_dicts)): 
     if example_dict is None: 
         print(shot_number)
         continue 
@@ -206,50 +204,6 @@ Here we want to find periods of near-constant global plasma parameters, namely t
     - Ideally, we pass a sliding window over the proposed $P_{ratio} > 1$ that removes outliers.  
 
 
-```{python}
-#| eval: false 
-from typing import Dict, Union
-def plot_time_traces(pulse_dict: Dict[str, Dict[str, np.ndarray]], shot_number: Union[int, str]) -> None: 
-    machine_param_signals = ['efit/Rgeo','efit/k', 'efit/ahor', 'efit/delRoben', 'efit/delRuntn', 'efit/Vol', 'gas/D_tot', 'magn/IpiFP', 'magn/q95',  'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT']
-    global_param_signals = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3', ]
-    power_signal_names = ['power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT', 'nbip/shi']
-    magnetic_signal_names = ['magn/IpiFP', 'magn/q95', 'magn/BTF']
-    elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
-    group_dict = {'MA, -, T': [('magn/IpiFP', 1e-6), ('magn/q95', 1.0), ('magn/BTF', 1.0)],
-                 'MW': [(sig, 1e-6) for sig in power_signal_names], 
-                 '$10^{22}$ e/s': [('gas/D_tot', 1e-22)], 
-                 '$10^{20}$ m$^{-3}$': [('kg1l/lad3', 1e-20)], 
-                 'MJ, MW': [('bolo/topi', 1e-6), ('ehtr/wdia', 1e-6)], 
-                 'ph/s/cm$^{2}$/sr': [('edg8/tbeo', 1e-13), ('edg8/tbei', 1e-13)]}
-
-    fig, fig_axs = plt.subplots(3, 2, figsize=(10, 10), sharex=True)
-    fig_axs = fig_axs.ravel()
-    for i, (units, signal_scalar_tuple) in enumerate(group_dict.items()):
-        for signal_name, scalar in signal_scalar_tuple: 
-            fig_axs[i].plot(pulse_dict[signal_name]['time'], abs(scalar*pulse_dict[signal_name]['data']), label=signal_name.split('/')[-1])
-        fig_axs[i].set_ylabel(units)
-        if units == 'MA, -, T': 
-            fig_axs[i].set_ylim(0, 6)
-
-    for ax in fig.get_axes():
-        ax.set_xlim(40, 60)
-        ax.legend(frameon=False)
-        ax.grid()
-    fig.subplots_adjust(hspace=0.0, wspace=0.4)
-    fig.suptitle(f'JET #{shot_number}')
-    plt.show()
-
-machine_param_signals = ['efit/Rgeo','efit/k', 'efit/ahor', 'efit/delRoben', 'efit/delRuntn', 'efit/Vol', 'gas/D_tot', 'magn/IpiFP', 'magn/q95',  'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT']
-global_param_signals = ['bolo/topi', 'ehtr/wdia']
-elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
-diagnostic_signal_names = list(set(diagnostic_signal_names + machine_param_signals + global_param_signals + elm_param_signals))
-shot_number = sample_shot_nums[0]
-example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
-# print(example_dict.keys())
-
-plot_time_traces(example_dict, shot_number)
-```
-
 #### Algorithm to determine where things are in the steady state 
 
 1. Using [**rupture**](https://centre-borelli.github.io/ruptures-docs/)@Truong2020, find the change points in $W_\text{dia}$
@@ -266,19 +220,22 @@ from typing import Dict, List, Tuple
 def find_steady_state_windows(pulse_dict: Dict[str, Dict[str, np.ndarray]]) -> Tuple[List[Tuple[float, float]], Tuple[float, float], Tuple[np.ndarray, np.ndarray]]: 
     """ Uses ruptures to find steady state windows using the PLH threshold and the diamagnetic energy """
     if not 'ehtr/wdia' in pulse_dict.keys(): raise KeyError('must include ehtr/wdia in list of diagnostics to pull')
+    # FREE PARAMETERS 
+    MIN_TIME_WINDOW_SIZE: float = 0.5
+    MAX_DEVIATION_OF_MEAN_FROM_SLOP = 0.15 # Percent deviation for a window to be marked as a steady state
     lh_domain, _, ratio_threshold_total_power = p_lh_threshold_martin_scaling_from_pulse_dict(pulse_dict)
-    h_mode_window = np.logical_and(ratio_threshold_total_power > 1.0, np.logical_and(lh_domain > 44, lh_domain < 60))
+    h_mode_window = np.logical_and(ratio_threshold_total_power > 1.0, np.logical_and(lh_domain > 44, lh_domain < 60)) # TODO: This is not scalable for AUG
     t_start_hmode, t_end_hmode = lh_domain[h_mode_window][0], lh_domain[h_mode_window][-1]
 
-    time, data = example_dict['ehtr/wdia']['time'], example_dict['ehtr/wdia']['data']
-    # window_size should be like 1248
+    time, data = pulse_dict['ehtr/wdia']['time'], pulse_dict['ehtr/wdia']['data']
     dt = (time[-1] - time[0])/len(time)
-    time_window_size = 0.5 # 0.5 seconds 
-    window_size = int(0.5 / dt)
-    
+    dt = np.diff(time).mean()
+    window_size = int(MIN_TIME_WINDOW_SIZE / dt)
+    if window_size < 100: 
+        print(f'window_size too small {window_size}, the estimated sampling frequency is {dt:.5}')
+        window_size = 1000 
     algo = rpt.Pelt(model='l2', min_size=window_size).fit(data)
-    n, dim, sigma = len(time), 1, 1
-    pen = np.log(n) * dim * sigma**2
+    pen = np.log(len(time)) # This is tehcnically also a free parameter 
     my_bkps = algo.predict(pen=pen)
     t_bkps = np.array([time[bkp] for bkp in my_bkps if bkp != len(time)])
     t_bkps_in_hmode = t_bkps[np.logical_and(t_bkps > t_start_hmode, t_bkps <= t_end_hmode)]
@@ -293,26 +250,20 @@ def find_steady_state_windows(pulse_dict: Dict[str, Dict[str, np.ndarray]]) -> T
             t_beg, t_end = t_bkps_in_hmode[t_idx-1], t
         _window_bool = np.logical_and(time >= t_beg, time <= t_end)
         slope = (data[_window_bool][-1] - data[_window_bool][0]) / (time[_window_bool][-1] - time[_window_bool][0])
-        if abs(slope / data[_window_bool].mean()) < 0.15: 
+        if abs(slope / data[_window_bool].mean()) < MAX_DEVIATION_OF_MEAN_FROM_SLOP: 
             t_window_steady_states.append((t_beg, t_end))
     return t_window_steady_states, (t_start_hmode, t_end_hmode), (lh_domain, ratio_threshold_total_power)
 
 ```
 
 ```{python}
-machine_param_signals = ['efit/Rgeo','efit/k', 'efit/ahor', 'efit/delRoben', 'efit/delRuntn', 'efit/Vol', 'gas/D_tot', 'magn/IpiFP', 'magn/q95',  'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT']
-global_param_signals = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3'] 
-elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
-diagnostic_signal_names = list(set(machine_param_signals + global_param_signals + elm_param_signals))
-
-# fig, axs = plt.subplots(ncols=2, nrows=4, constrained_layout=True, figsize=(10, 10))
-
+#| label: Steady-state
+#| fig-cap: "This approach has various failure modes, namely i) uneven sampling rate of the WDIA signal leads to the minimum window size to be much less than 0.5, ii) the slope/mean calculation curently fails if the start and end are very similar values, so one should ideally include a std metric"
 
 fig = plt.figure(figsize=(15, 15))
 gs_init = gridspec.GridSpec(3, 3, figure=fig)
 
-for k, shot_number in enumerate(sample_shot_nums[:9]): 
-    example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
+for k, (shot_number, example_dict) in enumerate(zip(sample_shot_nums, sample_shot_dicts)): 
     t_window_steady_states, ( t_start_hmode, t_end_hmode), (lh_domain, ratio_threshold_total_power) = find_steady_state_windows(example_dict)
 
     # col = 0 if k<= 1 else 1 
@@ -356,98 +307,175 @@ for ax in fig.get_axes():
 plt.show()
 ```
 
-How do these windows with other parameters? We are often interested in what happens when the power changes, or gas puff, etc., 
+
+## 3. ELM Timings 
+
+For each time window $[t_1, t_2]$ given by the above steady state algorithm, we apply the following algorithm to determine $t_\text{ELM}$ (s): 
+
+- Find the most likely ELM frequency, $\hat{f}_\text{ELM}$ of the window by taking the FFT of a normalised TBEO signal. The number of data points between ELMs is then likely to be $a\frac{\hat{f}_\text{ELM}}{T}$ where $T$ is the sampling frequency of the signal, and $a \in [0, 1]$ is a free parameter. Here I suggest using $a=0.66$, but offer no reasoning why.  
 
 
-- Machine parameters (heirarchial structure?)
+```{python}
+#| echo: true
+#| code-fold: true
+#| code-summary: "Code for finding ELM timings"
+from scipy.fft import dct, idct, fft, fftfreq
+from scipy import signal as sig
+from typing import Dict, Tuple
+def get_elm_timings_from_pulse_dict(pulse_dict: Dict[str, Dict[str, np.ndarray]], param='edg8/tbeo') -> Tuple[List[Tuple[float, float]], List[np.ndarray], Tuple[float, float]]: 
+    t_window_steady_states, (t_start_hmode, t_end_hmode), (lh_domain, ratio_threshold_total_power) = find_steady_state_windows(pulse_dict)
+    elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
+
+    elm_timings = []
+    time, data = example_dict[param]['time'], example_dict[param]['data']
+    for n, (t_beg, t_end) in enumerate(t_window_steady_states): 
+        _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+        _time, _data = time[_window_bool], data[_window_bool]
+        N = len(_time)
+        T = np.diff(_time).mean() 
+        _mean, _std = _data.mean(), _data.std()
+        # To get rid of the close to 0 frequency in the fft, we subtract the mean and divide by std. 
+        tbeo_dat_normed = (_data - _mean)/_std
+        yf_og = fft(tbeo_dat_normed)
+        xf = fftfreq(N, T)[:N//2]
+
+        likely_freq_og = xf[np.argmax(2.0/N*np.abs(yf_og[0:N//2]))]
+        likely_freq_time_og = 1.0/ likely_freq_og
+        num_samples_patience_og = int(likely_freq_time_og / T)
+        distance_in_indicie_space = num_samples_patience_og - (num_samples_patience_og // 3)
+        peaks_og, properties_og = sig.find_peaks(_data,  height=_mean+_std, distance=distance_in_indicie_space) # TODO: Free parameter here! 
+        window_elm_timings = _time[peaks_og]
+        elm_timings.append(window_elm_timings)
+    return t_window_steady_states, elm_timings, (t_start_hmode, t_end_hmode)
+
+```
+```{python}
+#| label: ELM-timings
+#| fig-cap: "Although this has many failure modes, it still gives a pretty good starting point to the ELM timings, which should in the end be done by hand (likely) or even clustering"
+fig = plt.figure(figsize=(25, 20), constrained_layout=True)
+gs_init = gridspec.GridSpec(len(sample_shot_nums), 1, figure=fig)
+subfigs = [fig.add_subfigure(gs) for gs in gs_init]
+for i, (shot_number, example_dict) in enumerate(zip(sample_shot_nums, sample_shot_dicts)): 
+    t_window_steady_states, elm_timings_per_window, (t_start_hmode, t_end_hmode) = get_elm_timings_from_pulse_dict(example_dict)
+    subfig = subfigs[i]
+    subfig.suptitle(f'{shot_number} TBEO')
+    axes = subfig.subplots(1, len(t_window_steady_states) + 1)
+    ax1 = axes[0]
+    time, data = example_dict['edg8/tbeo']['time'], example_dict['edg8/tbeo']['data']
+    ax1.plot(time, data, label='tbeo')
+    ax1.set_xlim(t_start_hmode -1, t_end_hmode+1)
+
+    for n, ((t_beg, t_end), elm_timings) in enumerate(zip(t_window_steady_states, elm_timings_per_window)): 
+        _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+        _time, _data = time[_window_bool], data[_window_bool]
+        _mean, _std = _data.mean(), _data.std()
+        ax1.plot(_time, _data, color='violet')
+        ax1.axvline(t_beg, color='green', ls='--')
+        ax1.axvline(t_end, color='green', ls='--')
+
+        ax = axes[n+1]
+        ax.plot(_time, _data, color='violet')
+        ax.set_title(f'{t_end - t_beg:.2}s')
+        ax.vlines(elm_timings, min(_data), _mean+_std, color='black', alpha=0.5)
+        ax.set_yticks([], [])
+        ax.set_xticks([t_beg, t_end], [f'{t_beg:.4}', f'{t_end:.4}'])
+        ax.set_xlim(t_beg -0.1, t_end+0.1)
+plt.show()
+```
+
+
+##### What does this look like in terms of the full pulse sequence for machine parameters? 
+
+
+```{python}
+#| label: pulse-sequence-with-time-sequences
+#| fig-cap: "We see that the periods of steady state are often occuring with near constant machine parameters. One could likely study dynamics of the pedestal evolution, or just take an overall average for the whole pulse when MPS are the same."
+from typing import Dict, Union, Optional
+def plot_time_traces_with_time_windows(pulse_dict: Dict[str, Dict[str, np.ndarray]], shot_number: Union[int, str], time_windows: Optional[List[Tuple[float, float]]] = None, subfig = None) -> None: 
+    machine_param_signals = ['efit/Rgeo','efit/k', 'efit/ahor', 'efit/delRoben', 'efit/delRuntn', 'efit/Vol', 'gas/D_tot', 'magn/IpiFP', 'magn/q95',  'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT']
+    global_param_signals = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3', ]
+    power_signal_names = ['power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT', 'nbip/shi']
+    magnetic_signal_names = ['magn/IpiFP', 'magn/q95', 'magn/BTF']
+    elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
+    group_dict = {'MA, -, T': [('magn/IpiFP', 1e-6), ('magn/q95', 1.0), ('magn/BTF', 1.0)],
+                 'MW': [(sig, 1e-6) for sig in power_signal_names], 
+                 '$10^{22}$ e/s': [('gas/D_tot', 1e-22)], 
+                 '$10^{20}$ m$^{-3}$': [('kg1l/lad3', 1e-20)], 
+                 'MJ, MW': [('bolo/topi', 1e-6), ('ehtr/wdia', 1e-6)], 
+                 'ph/s/cm$^{2}$/sr': [('edg8/tbeo', 1e-13), ('edg8/tbei', 1e-13)]}
+
+    if subfig is None: 
+        subfig, fig_axs = plt.subplots(3, 2, figsize=(10, 10), sharex=True)
+        plotting = True
+    else:
+        fig_axs = subfig.subplots(3, 2, sharex=True)
+        plotting = False
+    fig_axs = fig_axs.ravel()
+    for i, (units, signal_scalar_tuple) in enumerate(group_dict.items()):
+        for signal_name, scalar in signal_scalar_tuple: 
+            if pulse_dict.get(signal_name) is None: 
+                continue 
+            time, data = pulse_dict[signal_name]['time'], abs(scalar*pulse_dict[signal_name]['data'])
+            if isinstance(time, str):# time.shape != data.shape: 
+                continue
+            fig_axs[i].plot(time, data, label=signal_name.split('/')[-1], lw=5)
+            if time_windows is not None: 
+                for n, (t_beg, t_end) in enumerate(time_windows): 
+                    _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+                    _time, _data = time[_window_bool], data[_window_bool]
+                    _mean, _std = _data.mean(), _data.std()
+                    fig_axs[i].scatter((_time[0] + _time[-1]) / 2.0, _mean, color='black', s=75, zorder=10)
+                    
+        fig_axs[i].set_ylabel(units)
+        if units == 'MA, -, T': 
+            fig_axs[i].set_ylim(0, 6)
+
+    for ax in subfig.get_axes():
+        ax.set_xlim(40, 60)
+        ax.legend(frameon=False)
+        ax.grid()
+
+    subfig.subplots_adjust(hspace=0.0, wspace=0.4)
+    subfig.suptitle(f'JET #{shot_number}')
+    if plotting: 
+        plt.show()
+
+shot_number = sample_shot_nums[0]
+# example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
+example_dict = sample_shot_dicts[0]
+t_window_steady_states, _, _ = find_steady_state_windows(example_dict)
+# print(example_dict.keys())
+fig = plt.figure(figsize=(25, 25), constrained_layout=True)
+gs_init = gridspec.GridSpec(3, 3, figure=fig)
+subfigs = [fig.add_subfigure(gs) for gs in gs_init]
+
+for i, (shot_number, example_dict) in enumerate(zip(sample_shot_nums, sample_shot_dicts)): 
+    t_window_steady_states, _, _ = find_steady_state_windows(example_dict)
+    plot_time_traces_with_time_windows(example_dict, shot_number, t_window_steady_states, subfig=subfigs[i])
+plt.show()
+```
+
+- Machine parameters 
     - **Shaping**: $R$, $a$, $\delta_u$, $\delta_o$, $V_P$,  **Gas**: $\Gamma_D$, **Power**: Defined above, **Magnetic**: $q_{95}$, $I_P$, $B_T$
 - Global Parameters
     - Radiated power from bolometer,  Diamagnetic Stored energy of the plasma, Line averaged density, Average inner/outer Be II photon flux (ELMs)
 
-## 3. ELM Timings 
+#### Notable other ELM algorithms 
 
-The algorithm implemented in @ELM_TIMINGS_PREPRINT is simplified as follows: 
+- As implemented in @ELM_TIMINGS_PREPRINT 
 
-- 'up-sample' the signals
-    - DCT of signal, append 0s up to the highest sampling frequency range for each signal used
-    - Inverse DCT back to real space 
-- take first derivative 'up-sampled' signal.
-- From each differentiated signal, the $1-\nu$ largest points are labeled as canidates, where $\nu$ is a percentile filter for thresholding (optimal 0.997)
-    - `scipy.signal.find_peaks`
-
-```{python}
-"""
-fig = plt.figure(figsize=(15, 15))
-gs_init = gridspec.GridSpec(2, 2, figure=fig)
-
-for k, shot_number in enumerate(sample_shot_nums[:4]): 
-    example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
-
-    col = 0 if k<= 1 else 1 
-    row = k % 2
-    gs_pulse = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs_init[k], hspace=0.0)
-    
-    for idx, param in enumerate(elm_param_signals): 
-        ax = fig.add_subplot(gs_pulse[idx])
-        if idx == 0: 
-            ax.set_title(f'JET #{shot_number}')
-        ax.plot(example_dict[param]['time'], example_dict[param]['data'], label=param.split('/')[-1])
-"""
-machine_param_signals = ['efit/Rgeo','efit/k', 'efit/ahor', 'efit/delRoben', 'efit/delRuntn', 'efit/Vol', 'gas/D_tot', 'magn/IpiFP', 'magn/q95',  'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT']
-global_param_signals = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3'] 
-elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
-diagnostic_signal_names = list(set(machine_param_signals + global_param_signals + elm_param_signals))
-
-shot_number = sample_shot_nums[1]
-example_dict = get_dict_params(shot_number, diagnostic_signal_names, conn)
-
-t_window_steady_states, (t_start_hmode, t_end_hmode), (lh_domain, ratio_threshold_total_power) = find_steady_state_windows(example_dict)
-from scipy.fft import dct, idct
-
-fig, axs = plt.subplots(2, 1, figsize=(10, 10), sharex='col')
-
-for idx, param in enumerate(elm_param_signals): 
-    ax = axs[idx]
-    if idx == 0: 
-        ax.set_title(f'JET #{shot_number}')
-
-    time, data = example_dict[param]['time'], example_dict[param]['data']
-    ax.plot(time, data, label=param.split('/')[-1])
-
-    ax.set_xlim(t_start_hmode -1, t_end_hmode+1)
-
-    for (t_beg, t_end) in t_window_steady_states: 
-        _window_bool = np.logical_and(time >= t_beg, time <= t_end)
-        ax.plot(time[_window_bool], data[_window_bool], color='violet')
-        ax.axvline(t_beg, color='green', ls='--')
-        ax.axvline(t_end, color='green', ls='--')
-
-    ax.legend()
-
-    inset_1 = ax.inset_axes([0.1, 0.5, 0.3, 0.3])
-    (t_beg, t_end) = t_window_steady_states[0]
-    _window_bool = np.logical_and(time >= t_beg, time <= t_end)
-    _time, _data = time[_window_bool], data[_window_bool]
-    inset_1.plot(_time, _data)
-    # inset_1.plot(_time, np.diff(_data, prepend=0.0))
-    upsampled = np.zeros(10000)
-    upsampled[:len(_data)] = dct(_data-data.mean() / data.std())
-    print(idct(upsampled).shape)
-    upsampled_idct = idct(upsampled, n=len(_time))
-    inset_1.plot(_time, upsampled_idct)
-    ax.indicate_inset_zoom(inset_1, edgecolor="black")
-
-    inset = ax.inset_axes([0.6, 0.2, 0.3, 0.3])
-    (t_beg, t_end) = t_window_steady_states[-1]
-    _window_bool = np.logical_and(time >= t_beg, time <= t_end)
-    _time, _data = time[_window_bool], data[_window_bool]
-    inset.plot(_time, _data)
-    ax.indicate_inset_zoom(inset, edgecolor="black")
-   
-
-plt.show()
-```
 
 ## 4. Bayesian fitting 
 
 this isn't really automating things but rather a better way to fit. 
+
+```{python}
+
+```
+
+
+### Libraries used 
+
+- Ruptures 
+- Scipy 
+- numpy 

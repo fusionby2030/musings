@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.269">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>ELM Determination</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="elm_finding_files/libs/clipboard/clipboard.min.js"></script>
+<script src="elm_finding_files/libs/quarto-html/quarto.js"></script>
+<script src="elm_finding_files/libs/quarto-html/popper.min.js"></script>
+<script src="elm_finding_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="elm_finding_files/libs/quarto-html/anchor.min.js"></script>
+<link href="elm_finding_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="elm_finding_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="elm_finding_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="elm_finding_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="elm_finding_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">ELM Determination</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<div class="cell" data-execution_count="2">
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbeo 0 [44.64 44.68 44.73 44.76 44.8  44.85 44.89 44.93 44.97 45.01 45.04 45.09
+ 45.13 45.16 45.19 45.24]
+edg8/tbeo 1 [46.63 46.68 46.72 46.76 46.8  46.84 46.88 46.92 46.95 46.98 47.   47.04
+ 47.08 47.11 47.14 47.17 47.19 47.21 47.24 47.26 47.28 47.3  47.33 47.35
+ 47.39 47.42 47.44]
+edg8/tbeo 2 [47.46 47.48 47.51 47.53 47.56 47.59 47.61 47.64 47.67 47.72 47.75 47.78
+ 47.8  47.86 47.9  47.93]
+edg8/tbeo 3 [47.96 47.98 48.02 48.05 48.08 48.12 48.16 48.2  48.24 48.28 48.32 48.35]</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbei 0 [44.64 44.68 44.73 44.76 44.8  44.85 44.89 44.93 44.97 45.01 45.04 45.09
+ 45.13 45.16 45.19 45.23 45.25]
+edg8/tbei 1 [46.63 46.68 46.72 46.76 46.8  46.84 46.88 46.92 46.95 46.98 47.   47.04
+ 47.08 47.11 47.14 47.17 47.19 47.21 47.23 47.26 47.28 47.3  47.32 47.35
+ 47.39 47.42 47.44]
+edg8/tbei 2 [47.46 47.48 47.51 47.53 47.56 47.59 47.61 47.64 47.66 47.72 47.75 47.77
+ 47.8  47.86 47.9  47.93]
+edg8/tbei 3 [47.95 48.02 48.05 48.08 48.12 48.16 48.2  48.24 48.28 48.31 48.35]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-3.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-4.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbeo 0 [51.65 51.7  51.74 51.8  51.85 51.9  51.93 51.97 52.01 52.04 52.1  52.15
+ 52.18 52.22 52.27 52.28 52.33 52.38]
+edg8/tbeo 1 [52.42 52.47 52.51 52.55 52.61 52.64 52.69 52.73 52.79 52.86 52.9  52.95]
+edg8/tbeo 2 [52.95 52.97 53.02 53.04 53.05 53.08 53.11 53.15 53.2  53.25 53.29 53.33
+ 53.39 53.41 53.45 53.48]
+edg8/tbeo 3 [53.54 53.55 53.58 53.6  53.65 53.69 53.73 53.76 53.8  53.85 53.88 53.93
+ 53.95 53.99 54.06]</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbei 0 [51.65 51.7  51.74 51.8  51.85 51.9  51.93 51.97 52.01 52.04 52.1  52.15
+ 52.18 52.22 52.27 52.28 52.33 52.38]
+edg8/tbei 1 [52.42 52.47 52.51 52.55 52.61 52.64 52.69 52.73 52.79 52.86 52.9  52.95]
+edg8/tbei 2 [52.97 53.02 53.04 53.06 53.08 53.12 53.15 53.2  53.25 53.29 53.33 53.39
+ 53.41 53.45 53.48]
+edg8/tbei 3 [53.54 53.55 53.58 53.6  53.65 53.69 53.73 53.76 53.8  53.85 53.88 53.93
+ 53.95 53.99 54.06]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-7.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-8.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbeo 0 [49.15 49.19 49.23 49.27 49.31 49.35 49.38 49.44]
+edg8/tbeo 1 [49.48 49.54 49.57 49.62 49.65 49.71]
+edg8/tbeo 2 [50.17 50.5 ]
+edg8/tbeo 3 [50.88 50.93 51.15]
+edg8/tbeo 4 [51.15 51.38]
+edg8/tbeo 5 [52.31 52.38 52.4  52.49 52.52 52.55 52.62 52.65 52.68 52.72]</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbei 0 [49.15 49.19 49.23 49.27 49.31 49.35 49.38 49.44]
+edg8/tbei 1 [49.48 49.54 49.56 49.62 49.65 49.71]
+edg8/tbei 2 [50.16 50.5 ]
+edg8/tbei 3 [50.93 51.14]
+edg8/tbei 4 [51.16 51.17 51.18 51.19 51.21 51.22 51.24 51.25 51.26 51.27 51.28 51.29
+ 51.31 51.38 51.4 ]
+edg8/tbei 5 [52.31 52.38 52.49 52.55 52.62 52.71]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-11.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-12.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbeo 0 [48.85 48.86 48.87 48.89 48.9  48.91 48.92 48.94 48.95 48.96 48.97 48.98
+ 48.99 49.   49.01 49.03 49.04 49.08 49.09 49.11 49.12 49.13 49.14 49.16
+ 49.17 49.18 49.19 49.2  49.22]
+edg8/tbei 0 [48.84 48.86 48.87 48.88 48.9  48.91 48.92 48.93 48.95 48.96 48.97 48.98
+ 48.99 49.   49.01 49.02 49.04 49.08 49.09 49.11 49.12 49.13 49.14 49.15
+ 49.17 49.18 49.19 49.2  49.22]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-14.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-15.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbeo 0 [49.8  49.88 49.9  49.94 49.98 50.   50.03 50.05 50.08 50.11 50.15 50.19
+ 50.21 50.25]
+edg8/tbeo 1 [50.27 50.31 50.34 50.39 50.43 50.45 50.48 50.49 50.53 50.55 50.57 50.59
+ 50.64 50.66 50.69 50.72 50.73 50.74 50.77]
+edg8/tbeo 2 [50.79 50.8  50.84 50.87 50.92 50.93 50.95 50.96 51.   51.04 51.07 51.08
+ 51.1  51.12 51.13 51.18 51.19 51.21 51.24 51.25]
+edg8/tbeo 3 [51.28 51.31 51.32 51.33 51.35 51.4  51.42 51.45 51.46 51.48 51.5  51.51
+ 51.54 51.55 51.6  51.62 51.62 51.66 51.69 51.71 51.73 51.76]
+edg8/tbeo 4 [51.81 51.86 51.91 51.95 52.01 52.06 52.1  52.14 52.18 52.21 52.25 52.3 ]
+edg8/tbeo 5 [52.32 52.34 52.37 52.39 52.43 52.45 52.47 52.52 52.56 52.59 52.62 52.65
+ 52.68 52.7  52.76 52.79 52.82 52.85 52.87 52.91 52.93 52.95 52.99 53.02]
+edg8/tbeo 6 [53.05 53.07 53.09 53.13 53.16 53.18 53.22 53.24 53.26 53.28 53.3  53.35
+ 53.37 53.41 53.45 53.49 53.5  53.53]
+edg8/tbeo 7 [53.55 53.6  53.71 53.76 53.82 53.9  53.97 54.03 54.1 ]
+edg8/tbeo 8 [54.14 54.17 54.2  54.22 54.22 54.27 54.29 54.31 54.34 54.36 54.38 54.39
+ 54.41 54.42 54.45 54.45 54.52 54.53 54.57]</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbei 0 [49.8  49.88 49.9  49.94 49.98 50.   50.03 50.05 50.08 50.11 50.15 50.19
+ 50.21 50.25]
+edg8/tbei 1 [50.27 50.31 50.34 50.39 50.39 50.43 50.45 50.48 50.49 50.53 50.55 50.57
+ 50.59 50.64 50.66 50.69 50.72 50.73 50.74 50.77]
+edg8/tbei 2 [50.79 50.8  50.84 50.87 50.92 50.93 50.95 50.96 51.   51.04 51.07 51.08
+ 51.1  51.13 51.18 51.19 51.21 51.24 51.25]
+edg8/tbei 3 [51.28 51.31 51.32 51.33 51.35 51.4  51.42 51.45 51.46 51.48 51.5  51.51
+ 51.54 51.55 51.6  51.62 51.66 51.69 51.71 51.73 51.76]
+edg8/tbei 4 [51.81 51.83 51.86 51.91 51.92 51.95 51.97 52.   52.01 52.02 52.03 52.06
+ 52.06 52.1  52.12 52.14 52.18 52.21 52.24 52.25 52.25 52.3 ]
+edg8/tbei 5 [52.32 52.34 52.37 52.39 52.43 52.45 52.47 52.52 52.56 52.59 52.62 52.65
+ 52.68 52.7  52.76 52.79 52.82 52.85 52.87 52.91 52.93 52.95 52.99 53.02]
+edg8/tbei 6 [53.05 53.07 53.09 53.13 53.16 53.18 53.22 53.24 53.26 53.27 53.28 53.3
+ 53.33 53.35 53.37 53.41 53.45 53.49 53.5  53.51 53.53]
+edg8/tbei 7 [53.55 53.56 53.6  53.6  53.62 53.67 53.71 53.71 53.73 53.76 53.77 53.77
+ 53.82 53.83 53.88 53.9  53.93 53.97 54.   54.   54.03 54.04 54.05 54.07
+ 54.1 ]
+edg8/tbei 8 [54.14 54.17 54.2  54.21 54.22 54.27 54.31 54.34 54.36 54.38 54.39 54.41
+ 54.42 54.45 54.45 54.52 54.53 54.57]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-18.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-19.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbeo 0 [49.2  49.23 49.26 49.32 49.36 49.48 49.54 49.58 49.61]
+edg8/tbeo 1 [49.69 49.74 49.78 49.8  49.83 49.86 49.92 49.98 50.01 50.04 50.13 50.18
+ 50.25 50.28]
+edg8/tbeo 2 [50.28 50.32 50.37 50.39 50.52 50.55 50.61 50.64 50.76 50.81 50.88 50.92]
+edg8/tbeo 3 [50.92 51.01 51.04 51.1  51.13 51.25 51.28 51.35 51.41]
+edg8/tbeo 4 [51.5  51.54 51.57 51.59 51.61 51.65 51.7  51.76 51.79 51.84 51.86 51.89
+ 51.97 52.02 52.05 52.1  52.12 52.15]</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbei 0 [49.2  49.23 49.26 49.32 49.36 49.48 49.54 49.58 49.6 ]
+edg8/tbei 1 [49.69 49.74 49.78 49.8  49.83 49.86 49.92 49.98 50.01 50.04 50.13 50.18
+ 50.25 50.28]
+edg8/tbei 2 [50.28 50.32 50.37 50.39 50.51 50.55 50.61 50.64 50.76 50.81 50.88 50.92]
+edg8/tbei 3 [50.92 51.01 51.04 51.1  51.13 51.25 51.28 51.32 51.37 51.41]
+edg8/tbei 4 [51.5  51.54 51.57 51.59 51.61 51.65 51.7  51.76 51.79 51.84 51.86 51.89
+ 51.97 52.02 52.05 52.1  52.12 52.15]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-22.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-23.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbeo 0 [45.43 45.47 45.51 45.56 45.62 45.65 45.69 45.74 45.78 45.83 45.89]
+edg8/tbeo 1 [45.94 45.99 46.04 46.09 46.12 46.17 46.21 46.25 46.29 46.32 46.36 46.4
+ 46.43]</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbei 0 [45.43 45.47 45.51 45.56 45.59 45.65 45.69 45.74 45.78 45.83 45.89]
+edg8/tbei 1 [45.94 45.99 46.04 46.09 46.12 46.17 46.21 46.25 46.29 46.32 46.36 46.4
+ 46.43]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-26.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-27.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbeo 0 [49.78 49.82 49.85 49.9  49.94 49.99 50.03 50.06 50.09 50.14 50.18 50.2
+ 50.24 50.28 50.32 50.35 50.38 50.44 50.47 50.5 ]
+edg8/tbeo 1 [50.55 50.58 50.64 50.65 50.69 50.73 50.75 50.8  50.82 50.87 50.92 50.96
+ 50.99 51.04 51.05 51.08 51.12]
+edg8/tbeo 2 [51.18 51.22 51.24 51.28 51.33 51.35 51.42 51.45 51.48 51.51 51.55 51.59
+ 51.61 51.65]
+edg8/tbeo 3 [51.65 51.7  51.73 51.76 51.79 51.82 51.85 51.94 51.98 52.02 52.05 52.08
+ 52.11 52.15]
+edg8/tbeo 4 [52.23 52.25 52.29 52.32 52.34 52.37 52.42 52.48 52.51 52.55 52.58 52.6
+ 52.64 52.66 52.75 52.82 52.86 52.91]
+edg8/tbeo 5 [52.92 53.   53.03 53.06 53.08 53.12 53.17 53.25 53.29 53.36 53.39]
+edg8/tbeo 6 [53.46 53.51 53.55 53.58 53.62 53.65 53.68 53.76 53.8  53.84 53.88 53.9
+ 53.94]
+edg8/tbeo 7 [54.09 54.31 54.49]</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbei 0 [49.78 49.82 49.85 49.9  49.94 49.99 50.03 50.06 50.09 50.14 50.18 50.2
+ 50.24 50.28 50.32 50.35 50.38 50.44 50.47 50.5 ]
+edg8/tbei 1 [50.53 50.55 50.58 50.64 50.65 50.69 50.73 50.75 50.8  50.82 50.87 50.92
+ 50.93 50.96 50.99 51.05 51.08 51.12]
+edg8/tbei 2 [51.18 51.22 51.24 51.28 51.3  51.33 51.35 51.36 51.42 51.45 51.48 51.51
+ 51.54 51.58 51.61 51.65]
+edg8/tbei 3 [51.7  51.73 51.76 51.79 51.82 51.83 51.85 51.94 51.98 52.02 52.05 52.08
+ 52.11 52.15]
+edg8/tbei 4 [52.22 52.25 52.29 52.31 52.34 52.37 52.42 52.48 52.51 52.55 52.58 52.6
+ 52.64 52.66 52.75 52.82 52.86 52.91]
+edg8/tbei 5 [52.92 53.   53.03 53.06 53.08 53.12 53.17 53.25 53.29 53.36 53.39]
+edg8/tbei 6 [53.46 53.51 53.55 53.58 53.62 53.65 53.68 53.76 53.8  53.84 53.88 53.9
+ 53.94]
+edg8/tbei 7 [53.95 54.01 54.04 54.09 54.12 54.14 54.24 54.3  54.33 54.35 54.49 54.54
+ 54.6 ]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-30.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-31.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbeo 0 [53.73 53.79 53.89 54.06 54.16 54.22 54.3 ]
+edg8/tbeo 1 [54.39 54.42 54.45 54.5  54.56 54.62 54.65 54.73 54.77 54.81 54.85 54.93
+ 55.01 55.06 55.1  55.15 55.22 55.3  55.33]
+edg8/tbeo 2 [55.33 55.41 55.45 55.52 55.55 55.6  55.68 55.73 55.78 55.82 55.85 55.89
+ 55.92 55.96 55.99 56.01 56.05 56.09]
+edg8/tbeo 3 [56.13 56.2  56.25 56.28 56.32 56.34 56.39 56.42 56.46 56.49 56.52 56.55
+ 56.61]</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>edg8/tbei 0 [53.73 53.79 53.89 54.06 54.16 54.22 54.3 ]
+edg8/tbei 1 [54.39 54.42 54.45 54.5  54.56 54.62 54.65 54.73 54.77 54.81 54.85 54.93
+ 55.01 55.06 55.1  55.15 55.22 55.3 ]
+edg8/tbei 2 [55.33 55.41 55.45 55.52 55.55 55.6  55.68 55.73 55.78 55.82 55.84 55.89
+ 55.92 55.95 55.98 56.01 56.05 56.09]
+edg8/tbei 3 [56.13 56.13 56.2  56.25 56.28 56.32 56.34 56.39 56.42 56.46 56.49 56.52
+ 56.55 56.55 56.61]</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-34.png" class="img-fluid"></p>
+</div>
+<div class="cell-output cell-output-display">
+<p><img src="elm_finding_files/figure-html/cell-3-output-35.png" class="img-fluid"></p>
+</div>
+</div>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
