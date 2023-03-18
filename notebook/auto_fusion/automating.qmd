@@ -55,7 +55,7 @@ Take for example, the JET Pedestal Database @Frassinetti2021.
 
 So we want to do this process, automatically and possibly compare models trained on JET PDB vs automated JET PDB. 
 
-
+Ideally the end result is a [compiled executable](https://nuitka.net/). 
 # What do we want to automate
 
 We want H-mode electron density, temperature, and pressure measurements for pedestal analysis at/near the KBM-PB stability boundrary. To do so, we need to identify time windows of near constant or steady state plasma and machine parameters, then find identify when ELM's occured, and found profile measurements that land near the end of an ELM cycle $(75-99\%)$. 
