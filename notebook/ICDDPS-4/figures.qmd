@@ -1,0 +1,177 @@
+---
+title: "General notes on the ICDDPS-4 contribution"
+
+execute: 
+  echo: false
+  warning: false
+---
+
+```{python}
+import os 
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt 
+
+if os.getenv('PLOTSTYLE') is not None: 
+    plt.style.use(os.getenv('PLOTSTYLE'))
+RED = "#dd3015"
+GREEN = "#489A8C"
+DARK = "#1C2C22"
+GOLD = "#F87D16"
+WHITE = "#FFFFFF"
+BLUE = "#2E6C96"
+mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=[RED, GREEN, DARK, GOLD, WHITE, BLUE]) 
+from helper_functions import get_allas_connection, get_pulse_dict
+
+conn = get_allas_connection()
+```
+
+## interesting shots? 
+- 37434
+- 37738
+- 39004: XPR 
+- 33194: PED 
+- 30997: Low $\nu$
+
+```{python}
+
+shot_num = 33194
+example_pulse = get_pulse_dict(shot_num, conn)
+
+```
+```{python}
+
+from typing import Dict, Union, Optional, List, Tuple
+def plot_time_traces_with_time_windows(pulse_dict: Dict[str, Dict[str, np.ndarray]], shot_number: Union[int, str], time_windows: Optional[List[Tuple[float, float]]] = None, subfig = None) -> None: 
+    machine_param_signals = ['efit/Rgeo','efit/k', 'efit/ahor', 'efit/delRoben', 'efit/delRuntn', 'efit/Vol', 'gas/D_tot', 'magn/IpiFP', 'magn/q95',  'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT']
+    global_param_signals = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3', ]
+    power_signal_names = ['power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT', 'nbip/shi']
+    magnetic_signal_names = ['magn/IpiFP', 'magn/q95', 'magn/BTF']
+    elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
+    group_dict = {'MA, -, T': [('magn/IpiFP', 1e-6), ('magn/q95', 1.0), ('magn/BTF', 1.0)],
+                 'MW': [(sig, 1e-6) for sig in power_signal_names], 
+                 '$10^{22}$ e/s': [('gas/D_tot', 1e-22)], 
+                 '$10^{20}$ m$^{-3}$': [('kg1l/lad3', 1e-20)], 
+                 'MJ, MW': [('bolo/topi', 1e-6), ('ehtr/wdia', 1e-6)], 
+                 'ph/s/cm$^{2}$/sr': [('edg8/tbeo', 1e-13), ('edg8/tbei', 1e-13)]}
+
+    if subfig is None: 
+        subfig, fig_axs = plt.subplots(3, 2, figsize=(10, 10), sharex=True)
+        plotting = True
+    else:
+        fig_axs = subfig.subplots(3, 2, sharex=True)
+        plotting = False
+    fig_axs = fig_axs.ravel()
+    for i, (units, signal_scalar_tuple) in enumerate(group_dict.items()):
+        for signal_name, scalar in signal_scalar_tuple: 
+            if pulse_dict.get(signal_name) is None: 
+                continue 
+            time, data = pulse_dict[signal_name]['time'], abs(scalar*pulse_dict[signal_name]['data'])
+            if isinstance(time, str):# time.shape != data.shape: 
+                continue
+            fig_axs[i].plot(time, data, label=signal_name.split('/')[-1], lw=5)
+            if time_windows is not None: 
+                for n, (t_beg, t_end) in enumerate(time_windows): 
+                    _window_bool = np.logical_and(time >= t_beg, time <= t_end)
+                    _time, _data = time[_window_bool], data[_window_bool]
+                    _mean, _std = _data.mean(), _data.std()
+                    fig_axs[i].scatter((_time[0] + _time[-1]) / 2.0, _mean, color='black', s=75, zorder=10)
+                    
+        fig_axs[i].set_ylabel(units)
+        if units == 'MA, -, T': 
+            fig_axs[i].set_ylim(0, 6)
+
+    for ax in subfig.get_axes():
+        ax.set_xlim(40, 60)
+        ax.legend(frameon=False)
+        ax.grid()
+
+    subfig.subplots_adjust(hspace=0.0, wspace=0.4)
+    subfig.suptitle(f'JET #{shot_number}')
+    if plotting: 
+        plt.show()
+
+# plot_time_traces_with_time_windows(example_pulse, shot_num)
+```
+
+```{python}
+
+print(example_pulse['machine_parameters'].keys())
+
+
+dw_dat, dw_time = example_pulse['machine_parameters']['dWmhd/dt']['data'], example_pulse['machine_parameters']['dWmhd/dt']['time']
+ptot_dat = np.zeros_like(dw_dat)
+for key in ['PNBI_TOT', 'P_OH', 'PICR_TOT', 'PECR_TOT']:
+    ptot_dat += example_pulse['machine_parameters'][key]['data']
+# pnbi_dat, pnbi_time = example_pulse['machine_parameters']['PNBI_TOT']['data'], example_pulse['machine_parameters']['PNBI_TOT']['time']
+p_rad = ptot_dat - dw_dat
+# print(dw_time.shape, pnbi_time.shape)
+fig = plt.figure()
+plt.plot(dw_time, p_rad)
+plt.plot(dw_time, ptot_dat)
+plt.plot(dw_time, dw_dat)
+
+```
+```{python}
+#| eval: false
+#| 
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle, PathPatch
+from matplotlib.text import TextPath
+from matplotlib.transforms import Affine2D
+import mpl_toolkits.mplot3d.art3d as art3d
+def text3d(ax, xyz, s, zdir="z", size=None, angle=0, usetex=False, **kwargs):
+    """
+    Plots the string *s* on the axes *ax*, with position *xyz*, size *size*,
+    and rotation angle *angle*. *zdir* gives the axis which is to be treated as
+    the third dimension. *usetex* is a boolean indicating whether the string
+    should be run through a LaTeX subprocess or not.  Any additional keyword
+    arguments are forwarded to `.transform_path`.
+
+    Note: zdir affects the interpretation of xyz.
+    """
+    x, y, z = xyz
+    if zdir == "y":
+        xy1, z1 = (x, z), y
+    elif zdir == "x":
+        xy1, z1 = (y, z), x
+    else:
+        xy1, z1 = (x, y), z
+
+    text_path = TextPath((0, 0), s, size=size, usetex=usetex)
+    trans = Affine2D().rotate(angle).translate(xy1[0], xy1[1])
+
+    p1 = PathPatch(trans.transform_path(text_path), **kwargs)
+    ax.add_patch(p1)
+    art3d.pathpatch_2d_to_3d(p1, z=z1, zdir=zdir)
+
+time, ne, te, radius = [example_pulse['profiles'][key].T for key in ['time', 'ne', 'Te','radius']]
+
+X, Y = np.meshgrid(radius[0], time)
+fig, ax = plt.subplots(1, 2, subplot_kw={"projection": "3d"}, figsize=(20, 10))
+
+surf = ax[0].plot_surface(X, Y, 1e-20*ne, cmap=mpl.cm.Spectral_r, linewidth=0)
+surf = ax[1].plot_surface(X, Y, 2*(1e-4*te), cmap=mpl.cm.Spectral_r, linewidth=0)
+# ax.view_init(elev=20., azim=-35, roll=0)
+# fig.colorbar(surf, shrink=0.5, aspect=5)
+for a in ax: 
+    a.set_xlabel(r'$\rho$', labelpad=10.0)
+    a.set_ylabel('time (s)', labelpad=10.0)
+    # a.view_init(elev=30, azim=-60, roll=0)
+size = 0.2
+text3d(ax[0], (0.32, 8, 0.9), '$n_e$ ($10^{20}$ m$^{-3}$)', zdir='y', size=size, usetex=True, ec="none", fc='k')
+# text3d(ax[1], (0.32, 8, 0.9), '$n_e$ ($10^{20}$ m$^{-3}$)', zdir='y', size=size, usetex=True, ec="none", fc='k')
+text3d(ax[1], (0.4, 8, 0.8), '$T_e$ (keV)', zdir='y', size=size, usetex=True, ec="none", fc='k')
+ax[1].set_zticks([0.2, 0.4, 0.6, 0.8, 1.0], [1, 2, 3, 4, 5])
+# ax[0].set_title('$n_e$ ($10^{20}$ m$^{-3}$)', y=0.98, fontdict=fontdict)
+# ax[1].set_title('$T_e$ (keV)', y=0.98, fontdict=fontdict)
+fig.suptitle(f'AUG {shot_num}: electron profiles via IDA', y=0.9)
+fig.subplots_adjust(wspace=0.01)
+plt.savefig(f'./{shot_num}_density', dpi=300)
+plt.savefig(f'./{shot_num}_density.svg')
+plt.show()
+
+``` 
+```{python}
+
+```

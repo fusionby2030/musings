@@ -1,0 +1,260 @@
+---
+title: "Posterior Predicitions of GP"
+
+execute: 
+  echo: false
+  warning: false
+---
+
+
+```{python}
+import os 
+import matplotlib as mpl
+import matplotlib.pyplot as plt 
+import numpy as np
+if os.getenv('PLOTSTYLE') is not None: 
+    plt.style.use(os.getenv('PLOTSTYLE'))
+
+mpl.rcParams["figure.facecolor"] = 'ffffff'
+mpl.rcParams["axes.facecolor"] = 'ffffff'
+```
+
+```{python}
+import pandas as pd 
+import torch 
+jet_pdb = pd.read_csv('./jet-all-full.csv')
+rel_cols = ['pepedheight(kPa)','Ip(MA)',  'uppertriangularity', 'lowertriangularity',  'B(T)', 'gasflowrateofmainspecies10^22(e/s)', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)'] # ,,]
+renamed = {'pepedheight(kPa)':'p_e^{ped}', 'Ip(MA)': 'I_P',  'uppertriangularity': '\delta_U', 'lowertriangularity': '\delta_L',  'B(T)': 'B_T', 'gasflowrateofmainspecies10^22(e/s)': '\Gamma', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)': 'P_TOT'}
+jet_pdb_subset = jet_pdb[jet_pdb['shot'] > 79000]
+jet_array = jet_pdb_subset[rel_cols].to_numpy()
+mps_full, pressure_full = torch.from_numpy(jet_array[:, 1:]), torch.from_numpy(jet_array[:, 0])
+NOISE_SE = 0.5
+train_yvar = torch.tensor(NOISE_SE**2,dtype=torch.float64)
+
+print(jet_pdb_subset[rel_cols].rename(columns=renamed).describe())
+jet_pdb_subset[['shot'] + rel_cols].sort_values(by='pepedheight(kPa)', ascending=False).rename(columns=renamed).head(10)
+```
+
+
+```{python}
+# Load model 
+from botorch.models import FixedNoiseGP
+from gpytorch.priors import LogNormalPrior, NormalPrior, UniformPrior
+train_obj = pressure_full[:-1].unsqueeze(-1)
+train_x = mps_full[:-1]
+model = FixedNoiseGP(train_x, train_obj, train_yvar.expand_as(train_obj).to(train_x))
+model.mean_module.register_prior("mean_prior", NormalPrior(loc=0, scale=1), "constant")
+model.covar_module.base_kernel.register_prior("lengthscale_prior", LogNormalPrior(0, 1), "lengthscale")
+model.covar_module.register_prior("outputscale_prior", UniformPrior(0.01, 100), "outputscale")
+# likelihood.register_prior("noise_prior", UniformPrior(0.01, 10), "noise")
+state_dict = torch.load('./model_ent_state_6D.pth')
+model.load_state_dict(state_dict)
+
+```
+
+## A scan of power vs gas puff for low/high current or low/high triangularity
+
+```{python}
+
+power_scan = torch.linspace(5, 25, 100)
+gas_scan = torch.linspace(0, 3, 100)
+
+current = 3.5 # 2.5
+t_u = 0.21
+t_l = 0.27
+bt = mps_full[:, 3].mode()[0].item()
+
+print(bt)
+grid = torch.zeros((100, 100, 2))
+for i, pow_val in enumerate(power_scan): 
+    for j, gas_val in enumerate(gas_scan): 
+        loc = torch.tensor([pow_val, gas_val]).squeeze()
+        grid[i, j] = loc
+
+grid_reshaped = grid.reshape(-1, 2)
+
+scan = torch.empty((grid_reshaped.shape[0], len(rel_cols) -1))
+# print(scan.shape, torch.tensor([bt]*grid.shape[0]).unsqueeze(-1).shape)
+scan[:, -1] = grid_reshaped[:, 0]
+scan[:, -2] = grid_reshaped[:, 1]
+scan[:, -3] = torch.tensor([bt]*grid_reshaped.shape[0])# .unsqueeze(-1)
+scan[:, -4] = torch.tensor([t_l]*grid_reshaped.shape[0])# .unsqueeze(-1)
+scan[:, -5] = torch.tensor([t_u]*grid_reshaped.shape[0])# .unsqueeze(-1)
+scan[:, -6] = torch.tensor([current]*grid_reshaped.shape[0])# .unsqueeze(-1)
+
+idx = 5000
+l_1, l_2 = np.unravel_index(idx, (100, 100))
+print(scan.shape, grid[l_1, l_2], scan[idx, -1], scan[idx, -2])
+# result_grid = torch.zeros((100, 100, 2))
+with torch.no_grad(): 
+    post = model.posterior(scan)
+    post_mean = post.mean[:, 0]
+    post_var = post.variance[:, 0]
+
+Z_mu = torch.empty((100, 100))
+Z_var = torch.empty((100, 100))
+from itertools import product
+for i, (x, y) in enumerate(product(power_scan, gas_scan)): 
+    Z_mu[np.unravel_index(i, (100, 100))] = post_mean[i]
+    Z_var[np.unravel_index(i, (100, 100))] = post_var[i]
+
+X, Y = np.meshgrid(power_scan, gas_scan)
+fig, axs = plt.subplots(1, 2, subplot_kw={"projection": "3d"}, figsize=(20, 10))
+my_col = mpl.cm.Spectral_r((Z_mu.T.numpy() - Z_mu.numpy().min()) /(Z_mu.numpy().max() - Z_mu.numpy().min()))
+for ax, plotting in zip(axs, [Z_mu, Z_var]): 
+    ax.plot_surface(X, Y, plotting.T, facecolors=my_col, linewidth=0, antialiased=False)
+
+# axes.facecolor : efd7a7
+axs[0].set_title('GP Posterior Mean', y=0.98, fontsize=20)
+axs[1].set_title('GP Posterior Variance', y=0.98)
+axs[0].view_init(elev=20., azim=-45, roll=0)
+for a in axs: 
+    a.set_xlabel('$P_{TOT}$ [MW]', labelpad=15.0)
+    a.set_ylabel('Gas puff [(e/s)$^{22}$]', labelpad=15.0)
+    a.set_zlabel('$p_e^{ped}$ \n[kPa]', labelpad=15.0, rotation='horizontal')
+    a.view_init(elev=20., azim=-45, roll=0)
+plt.show()
+```
+```{python}
+#| eval: false
+# figure.facecolor : efd7a7
+# axes.facecolor : efd7a7
+fig, axs = plt.subplots(1, 2, subplot_kw={"projection": "3d"}, figsize=(20, 10), constrained_layout=True, dpi=400)
+# ax.scatter(grid.reshape(-1, 2)[:, 0], grid.reshape(-1, 2)[:, 1], post_var)
+for ax, plotting in zip(axs, [post_mean, post_var]): 
+    ax.scatter(grid.reshape(-1, 2)[:, 0], grid.reshape(-1, 2)[:, 1], plotting)
+    ax.set_xlabel('Power')
+    ax.set_ylabel('Gas Puff')
+    ax.set_zlim(0, 15)
+    ax.view_init(elev=20., azim=-45, roll=0)
+plt.show()
+# for i, pow_val in enumerate(power_scan): 
+#     for j, gas_val in enumerate(gas_scan): 
+#         loc = torch.tensor([pow_val, gas_val]).squeeze()
+#         grid[i, j] = loc
+# print(grid.shape)
+```
+### Try to recreate Figure 8 of Lorenzos Paper
+
+- Low $\delta$
+- $I_P$ 1.4 MA
+- $B_T$ 1.7 T
+- Gas Scan 
+    - 0.2, 0.8, 1.8
+- Power scan, 0-25 MW
+
+
+```{python}
+#| eval: false
+current = 1.4
+t_u = 0.26
+t_l = 0.265893			
+bt = 1.7
+gamma = 0.2
+p_tot = 25.203873
+
+params_to_cat = [torch.tensor([param]*500).unsqueeze(-1) for param in [current, t_u, t_l, bt, gamma, p_tot]] 
+params_to_cat[-1] = torch.linspace(0, 25, 500).unsqueeze(-1)
+
+figure_8_scan_low_gas = torch.cat(params_to_cat, -1)
+params_to_cat[-2] = torch.tensor([0.8]*500).unsqueeze(-1)
+figure_8_scan_mid_gas = torch.cat(params_to_cat, -1)
+params_to_cat[-2] = torch.tensor([1.8]*500).unsqueeze(-1)
+figure_8_scan_high_gas = torch.cat(params_to_cat, -1)
+
+scans = []
+with torch.no_grad(): 
+    for scan in [figure_8_scan_high_gas, figure_8_scan_mid_gas, figure_8_scan_low_gas]:
+        post = model.posterior(scan)
+        post_mean = post.mean[:, 0]
+        post_var = post.variance[:, 0]
+        scans.append((scan, post_mean, post_var))
+fig, ax = plt.subplots(1, 2, figsize=(8, 4))
+for (scan, p_mean, p_var) in scans: 
+    ax[0].fill_between(scan[:, -1], p_mean - p_var, p_mean + p_var, alpha=0.2)
+    ax[0].plot(scan[:, -1], p_mean, label=f'Gas Puff: {scan[10, -2]:.3}', lw=3)
+
+ax[0].set_title(f'I_P = {current}')
+ax[0].legend()
+current = 2.5
+params_to_cat = [torch.tensor([param]*500).unsqueeze(-1) for param in [current, t_u, t_l, bt, gamma, p_tot]] 
+params_to_cat[-1] = torch.linspace(0, 25, 500).unsqueeze(-1)
+
+figure_8_scan_low_gas = torch.cat(params_to_cat, -1)
+params_to_cat[-2] = torch.tensor([0.8]*500).unsqueeze(-1)
+figure_8_scan_mid_gas = torch.cat(params_to_cat, -1)
+params_to_cat[-2] = torch.tensor([1.8]*500).unsqueeze(-1)
+figure_8_scan_high_gas = torch.cat(params_to_cat, -1)
+
+scans = []
+with torch.no_grad(): 
+    for scan in [figure_8_scan_high_gas, figure_8_scan_mid_gas, figure_8_scan_low_gas]:
+        post = model.posterior(scan)
+        post_mean = post.mean[:, 0]
+        post_var = post.variance[:, 0]
+        scans.append((scan, post_mean, post_var))
+
+for (scan, p_mean, p_var) in scans: 
+    ax[1].fill_between(scan[:, -1], p_mean - p_var, p_mean + p_var, alpha=0.2)
+    ax[1].plot(scan[:, -1], p_mean, label=f'Gas Puff: {scan[10, -2]:.3}', lw=3)
+ax[1].set_title(f'I_P = {current}')
+for a in ax: 
+    a.set_ylim(0, 15)
+    a.grid()
+    
+    a.label_outer()
+fig.subplots_adjust(wspace=0.0)
+plt.show()
+```
+
+```{python}
+#| eval: false
+scan = torch.stack([torch.linspace(min(mps_full[:, idx]), max(mps_full[:, idx]), 100) for idx in [0, 1]], -1)
+
+# Scan of current and upper triangularity
+grid = torch.zeros((100, 100, 2))
+for i, current_val in enumerate(scan[:, 0]): 
+    for j, low_val in enumerate(scan[:, 1]): 
+        loc = torch.tensor([current_val, low_val]).squeeze()
+        grid[i, j] = loc
+mode_2 = mps_full[:, 2].mode()[0].item()
+
+lower_triang = 0.265893			
+toroidal_field = 3.415069
+gas_puff = 3.060288
+p_tot = 25.203873
+
+params_to_cat = [grid.reshape(-1, 2)] + [torch.tensor([param]*10000).unsqueeze(-1) for param in [lower_triang, toroidal_field, gas_puff, p_tot]] 
+scan_1 = torch.cat(params_to_cat, -1)
+scan_1.shape
+
+params_to_cat[-1] = torch.tensor([10]*10000).unsqueeze(-1)
+scan_2 = torch.cat(params_to_cat, -1)
+
+```
+
+```{python}
+#| eval: false
+with torch.no_grad(): 
+    post = model.posterior(scan_1)
+    post_mean = post.mean[:, 0]
+    post_var = post.variance[:, 0]
+    post_2 = model.posterior(scan_2)
+    post_2_mean = post_2.mean[:, 0]
+    post_2_var = post_2.variance[:, 0]
+print(post.mean.max())
+```
+
+```{python}
+#| eval: false
+fig = plt.figure()
+
+fig, ax = plt.subplots(1, 1, subplot_kw={"projection": "3d"}, figsize=(20, 10))
+# ax.scatter(grid.reshape(-1, 2)[:, 0], grid.reshape(-1, 2)[:, 1], post_var)
+# ax.scatter(grid.reshape(-1, 2)[:, 0], grid.reshape(-1, 2)[:, 1], post_mean)
+ax.scatter(grid.reshape(-1, 2)[:, 0], grid.reshape(-1, 2)[:, 1], post_2_var)
+ax.set_xlabel('Current')
+ax.set_ylabel('Triang')
+# ax.view_init(elev=20., azim=-20, roll=0)
+plt.show()
+```
