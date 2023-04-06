@@ -70,8 +70,13 @@ ts = [time[t] for t in times]
 ```
 
 ```{python}
-
-def boostrap_current(slice_pressure: np.ndarray, slice_temperature: np.ndarray): 
+mu_0 = 1.256e-6 
+def boostrap_current(slice_pressure: np.ndarray, slice_temperature: np.ndarray, slice_density: np.ndarray, poloidal_field: float, major_radius: float, minor_radius: float): 
+    aspect_ratio = minor_radius / major_radius
+    x = np.sqrt(2*aspect_ratio)
+    D = 2.4 + 5.4*x + 2.6*x
+    collision_electron = 0.0 
+    collision_ion = 0.0
     pass 
 ```
 ```{python}
@@ -107,6 +112,8 @@ def calculate_boostrap_current_slice(slice_pressure: np.ndarray, slice_temperatu
         pass 
     return None
 ```
+
+## Pressure gradient 
 Pressure gradient at a given time
 ```{python}
 
