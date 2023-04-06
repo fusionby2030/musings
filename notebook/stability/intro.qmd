@@ -1,0 +1,169 @@
+---
+title: "Calculating stability parameters from data"
+
+execute: 
+  echo: false
+  warning: false
+
+fig-width: 10 
+fig-height: 10
+---
+
+```{python}
+import os 
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt 
+
+if os.getenv('PLOTSTYLE') is not None: 
+    plt.style.use(os.getenv('PLOTSTYLE'))
+RED = "#dd3015"
+GREEN = "#489A8C"
+DARK = "#1C2C22"
+GOLD = "#F87D16"
+WHITE = "#FFFFFF"
+BLUE = "#2E6C96"
+# mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=[RED, GREEN, DARK, GOLD, WHITE, BLUE]) 
+from helper_functions import get_allas_connection, get_pulse_dict
+
+conn = get_allas_connection()
+```
+
+
+## Persona nongrata
+
+- Pressure gradient / $\alpha_{\text{max}}$
+  - $\alpha_{\text{max}}$ is defined in @Frassinetti2021 
+- Magnetic shear / Boostrap current 
+  - A simple (relative) formula is given in @wesson
+
+$$\langle \vec{j}_b \cdot \vec{B} \rangle = \frac{\mu_0 f(\Psi) x p_e}{D(x)} \left( c_1 \frac{\nabla p_e}{p_e} + c_2 \frac{\nabla p_i}{p_i}  + c_3 \frac{\nabla T_e}{T_e} + c_4 \frac{\nabla T_i}{T_i} \right)$$
+
+where: 
+
+-  $f(\Psi) = RB_p(\Psi) / \mu_0$
+    - If we want to do this integral approximation, we will need to transform the magnetic field into flux coordinates...
+- $x$ is ratio of number of trapped to circulating particles, which can be approximated to $\simeq \sqrt{2}\epsilon^{1/2}$ with $\epsilon=a/R$
+  - For $D(x) = 2.4 + 5.4x + 2.6x^2$ and used sporatically in below coefficients
+- $c_1 = \frac{4.0 + 3.6x}{(1+0.2\nu_{*e}^{1/2} + 1.07\nu_{*e})(1+1.07\epsilon^{3/2}\nu_{*e})}$
+- $c_2 = \frac{T_i}{T_e} c_1$
+- $c_3 = \frac{7.0 + 6.5x}{(1+0.57\nu_{*e}^{1/2} + 0.61\nu_{*e})(1+0.61\epsilon^{3/2}\nu_{*e})} - \frac{5}{2}c_1$
+- $c_4 = \left( \frac{d+0.35\nu_{*i}^{1/2}}{1+0.7\nu_{*i}^{1/2}} +2.1\epsilon^3\nu_{*i}^{2}\right) \frac{1}{(1+\epsilon^3\nu_{*i}^{2})(1+ \epsilon^3\nu_{*e}^{2})}c_2$
+  - $d = \frac{1.17}{1+0.46x}$
+- $\nu_{*j}=\frac{\nu_j}{\epsilon \omega_{bj}}$
+  - where $\nu_e = \tau_e^{-1}$, $\nu_i = \tau_i^{-1}$ and $\omega_{bj} = \epsilon^{1/2}(T_j/m_j)^{1/2} / Rq$
+    - where the electron collision time for electron collisions with ions is defined as $\tau_e = \frac{12\pi^{3/2}}{\sqrt{2}}\frac{\epsilon_0 m_e^{1/2}T_e^{3/2}}{n_iZ^2e^4\ln \Lambda}$ but can be simplified for singly charged ions to be $6.4\times 10^{14} \frac{T_e^{3/2}}{n}$, with $\ln \Lambda$ and $T_e$ in keV.
+    - where the ion collision time characterizing ion collisions with other ions $\tau_i = 12\pi^{3/2} \frac{\epsilon_0^2 m_i^{1/2}T_i^{3/2}}{n_iZ^4e^4\ln\Lambda_i}$; $\Lambda_i = 1.1\Lambda$ but can be simplified for singly charged ions to be $6.6\times 10^{17} \left( \frac{m_i}{m_p}\right)^{1/2} \frac{T_i^{3/2}}{n\ln\Lambda_i}$ for $T_i$ in keV
+
+We can make even more simplifying assumptions, namely $n_e \approx n_i$, $T_e \approx T_i$ $\Rightarrow p_e = p_i$, reducing to 
+
+$$ j_b = \langle \vec{j}_b \cdot \vec{B} \rangle = \frac{\mu_0 f(\Psi) x p_e}{D(x)} \left( 2(c_1 + c_2)\frac{\nabla p_e}{p_e} + 2(c_3 + c_4)\frac{\nabla T_e}{T_e}\right)$$
+
+```{python}
+shot_num = 33616
+example_pulse = get_pulse_dict(shot_num, conn)
+
+time, ne, te, radius = [example_pulse['profiles'][key].T for key in ['time', 'ne', 'Te','radius']]
+pe = ne*te*(1.602e-19) 
+times = [3900 + i for i in range(500)]
+ts = [time[t] for t in times]
+```
+
+```{python}
+
+def boostrap_current(slice_pressure: np.ndarray, slice_temperature: np.ndarray): 
+    pass 
+```
+```{python}
+#| eval: false
+
+X, Y = np.meshgrid(radius[0], time)
+fig, ax = plt.subplots(1, 2, subplot_kw={"projection": "3d"}, figsize=(20, 10))
+
+surf = ax[0].plot_surface(X, Y, 1e-20*ne, cmap=mpl.cm.Spectral_r, linewidth=0)
+surf = ax[1].plot_surface(X, Y, (1e-4*te), cmap=mpl.cm.Spectral_r, linewidth=0)
+for a in ax: 
+    a.set_xlabel(r'$\rho$', labelpad=10.0)
+    a.set_ylabel('time (s)', labelpad=10.0)
+
+ax[0].set_title('$n_e$ ($10^{20}$ m$^{-3}$)', y=0.98)
+ax[1].set_title('$T_e$ (keV)', y=0.98)
+fig.suptitle(f'AUG {shot_num}: electron profiles via IDA', y=0.9)
+fig.subplots_adjust(wspace=0.01)
+```
+
+```{python}
+from typing import Union
+def find_alpha_max_from_pressure_slice(slice_pressure: np.ndarray, slice_radius: np.ndarray):
+    pressure_grad = -np.diff(slice_pressure/ 1000.0)
+    pg_sorted_max_bool_vals_in_ped = np.logical_and(slice_radius[1:] > 0.8, slice_radius[1:] < 1.1)[np.argsort(pressure_grad)]
+    in_ped = [x for i, x in enumerate(np.argsort(pressure_grad)) if pg_sorted_max_bool_vals_in_ped[i]]
+    max_pressure_grad_idx = in_ped[-1]
+    return pressure_grad[max_pressure_grad_idx], slice_radius[1:][max_pressure_grad_idx], slice_pressure[1:][max_pressure_grad_idx]
+
+def calculate_boostrap_current_slice(slice_pressure: np.ndarray, slice_temperature: np.ndarray, slice_radius: np.ndarray, total_current: float, toroidal_field: float, calc_type: str = 'simple'): 
+    
+    if calc_type == 'simple': 
+        pass 
+    return None
+```
+Pressure gradient at a given time
+```{python}
+
+fig, axs = plt.subplots(2, 2, figsize=(15, 8))
+((n_ax, p_ax), (ng_ax, pg_ax)) = axs
+t_ax = n_ax.twinx()
+# tg_ax = ng_ax.twinx()
+colors = [(t - float(min(times)) )/ (float(max(times)) - float(min(times))) for t in times]
+colors_t = [(c, 0.5, 0.5) for c in colors]
+
+alpha_max, rho_alpha_max, pressure_alpha_max = [], [], []
+for n, idx in enumerate(times): 
+    alpha, rho_alpha, p_alpha = find_alpha_max_from_pressure_slice(pe[idx], radius[idx])
+    alpha_max.append(alpha)
+    rho_alpha_max.append(rho_alpha)
+    pressure_alpha_max.append(p_alpha)
+
+colors = [(t - float(min(alpha_max)) )/ (float(max(alpha_max)) - float(min(alpha_max))) for t in alpha_max]
+colors_t = [(c, 0.5, 0.5) for c in colors]
+colors_str = [f'{k:.2f}' for k in colors]
+
+for n, idx in enumerate(times): 
+    n_ax.plot(radius[idx], ne[idx]*1e-20, lw=2, color=f'{colors[n]:.2f}') # 
+    t_ax.plot(radius[idx], te[idx] / 1000.0, lw=2, color=colors_t[n])
+    p_ax.plot(radius[idx], pe[idx] / 1000.0, lw=2, color=f'{colors[n]:.2f}')
+    ng_ax.plot(radius[idx][1:], -np.diff(ne[idx]*1e-20), color=f'{colors[n]:.2f}')
+    ng_ax.plot(radius[idx][1:], -np.diff(te[idx]/1000.0), color=colors_t[n])
+    pressure_grad = -np.diff(pe[idx] / 1000.0)
+    pg_ax.plot(radius[idx][1:], pressure_grad, lw=2, color=f'{colors[n]:.2f}')
+    # p_ax.scatter(radius[idx][1:][max_pressure_grad_idx], pe[idx][1:][max_pressure_grad_idx] / 1000, lw=2, color=colors_t[n], zorder=10)
+    p_ax.scatter(rho_alpha_max[n], pressure_alpha_max[n], color=colors_t[n], zorder=10)
+
+for ax in [n_ax, p_ax, ng_ax, pg_ax]: 
+    # ax.label_outer()
+    ax.set_xlim(0.75, 1.2)
+    ax.grid()
+ng_ax.set_ylim(0, 0.125)
+
+n_ax.set_xticklabels([])
+n_ax.set_ylim(0.0, 0.6)
+t_ax.set_ylim(0.0, 1)
+p_ax.set_ylim(-.5, 6)
+
+fig.suptitle(f'time $\in$ {time[times[0]]:.5} - {time[times[-1]]:.5} ')
+
+fig.subplots_adjust(hspace=0.0)
+
+plt.show()
+
+fig = plt.figure(figsize=(5, 5)) 
+
+plt.scatter(time[times], alpha_max, c=colors_str)
+plt.show()
+```
+### Tools
+
+
+- , @Ham2021, 
+- [reflectometry](https://www.aug.ipp.mpg.de/foswiki/bin/view/Reflectometry/RFL)
+- [Doppler](https://www.aug.ipp.mpg.de/aug/local/doppler/)
