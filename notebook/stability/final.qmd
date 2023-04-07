@@ -1,0 +1,137 @@
+---
+title: "Approximations of stability parameters"
+
+execute: 
+  echo: false
+  warning: false
+
+fig-width: 10 
+fig-height: 10
+---
+
+```{python}
+import os 
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt 
+
+if os.getenv('PLOTSTYLE') is not None: 
+    plt.style.use(os.getenv('PLOTSTYLE'))
+RED = "#dd3015"
+GREEN = "#489A8C"
+DARK = "#1C2C22"
+GOLD = "#F87D16"
+WHITE = "#FFFFFF"
+BLUE = "#2E6C96"
+# mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=[RED, GREEN, DARK, GOLD, WHITE, BLUE]) 
+from helper_functions import get_numpy_arrays_from_local_data
+from physics_functions import calculate_boostrap_current, find_j_max_from_boostrap_current
+# conn = get_allas_connection()
+local_dir = '/home/kitadam/ENR_Sven/ped_ssm/local_data_ptot_wmhd_plh'
+```
+
+```{python}
+shot_num = 37450 # 38933- no ELMs regime # 33616 
+
+[profiles, mps, radii, times], mp_names = get_numpy_arrays_from_local_data(shot_num, local_dir)
+ne, te = profiles[:, 0], profiles[:, 1]
+pe = ne*te*(1.602e-19) 
+
+colors = [(t - times[0] )/ (times[-1] - times[0]) for t in times]
+colors_t = [(c, 0.5, 0.5) for c in colors]
+
+```
+
+```{python}
+X, Y = np.meshgrid(radii[0], times)
+fig, ax = plt.subplots(1, 2, subplot_kw={"projection": "3d"}, figsize=(20, 10))
+
+surf = ax[0].plot_surface(X, Y, 1e-20*ne, cmap=mpl.cm.Spectral_r, linewidth=0)
+surf = ax[1].plot_surface(X, Y, (1e-4*te), cmap=mpl.cm.Spectral_r, linewidth=0)
+for a in ax: 
+    a.set_xlabel(r'$\rho$', labelpad=10.0)
+    a.set_ylabel('time (s)', labelpad=10.0)
+
+ax[0].set_title('$n_e$ ($10^{20}$ m$^{-3}$)', y=0.98)
+ax[1].set_title('$T_e$ (keV)', y=0.98)
+fig.suptitle(f'AUG {shot_num}: electron profiles via IDA', y=0.9)
+fig.subplots_adjust(wspace=0.01)
+```
+
+
+```{python}
+
+boostrap_currents = np.zeros_like(ne)
+pressure_gradients = np.zeros_like(ne)
+jb_maxes, alpha_maxes =  np.zeros_like(times), np.zeros_like(times)
+for n, idx in enumerate(times): 
+    ahor = mps[n, mp_names.index('ahor')]
+    q95 =  abs(mps[n, mp_names.index('q95')])
+    rgeo =  mps[n, mp_names.index('Rgeo')]
+    bt = abs(mps[n, mp_names.index('BTF')])
+
+    boostrap_current_approx = calculate_boostrap_current(pe[n], te[n], ne[n], radii[n], rgeo, ahor, q95, bt)
+    pressure_gradient = -np.gradient(pe[n])
+    boostrap_currents[n] = boostrap_current_approx
+    pressure_gradients[n] = pressure_gradient
+    max_jb, rad_max_jb, index_max_jb = find_j_max_from_boostrap_current(boostrap_current_approx, radii[n])
+    jb_maxes[n] = max_jb
+    alpha, rho_alpha, p_alpha = find_j_max_from_boostrap_current(pressure_gradient, radii[n])
+    alpha_maxes[n] = alpha
+```
+
+```{python}
+fig, ax = plt.subplots(1, 2, subplot_kw={"projection": "3d"}, figsize=(20, 10))
+
+surf = ax[0].plot_surface(X, Y, boostrap_currents*1e-6, cmap=mpl.cm.Spectral_r, linewidth=0)
+surf = ax[1].plot_surface(X, Y, pressure_gradients / 1000.0, cmap=mpl.cm.Spectral_r, linewidth=0)
+for a in ax: 
+    a.set_xlabel(r'$\rho$', labelpad=10.0)
+    a.set_ylabel('time (s)', labelpad=10.0)
+
+ax[0].set_title('$j_B$ [MA]', y=0.98)
+ax[1].set_title(r'$\nabla p_e$ (kPa)', y=0.98)
+fig.suptitle(f'AUG {shot_num}: bootstrap current approximation', y=0.9)
+fig.subplots_adjust(wspace=0.01)
+```
+
+```{python}
+
+fig, (jb_ax, alpha_ax) = plt.subplots(2, 1, figsize=(10, 5), sharex=True)
+
+jb_ax.scatter(times, jb_maxes, edgecolors=(0, 0, 0))
+alpha_ax.scatter(times, alpha_maxes, edgecolors=(0, 0, 0))
+axins = alpha_ax.inset_axes([0.5, 0.2, 0.48, 0.7])
+axins.scatter(times, alpha_maxes, edgecolors=(0, 0, 0))
+axins.set_ylim(0, 1200)
+axins.set_xlim(4.0, 4.5)
+alpha_ax.indicate_inset_zoom(axins, edgecolor="black")
+
+fig, ax = plt.subplots(1, 1)
+
+ax.scatter(alpha_maxes, jb_maxes, c=colors_t)
+
+plt.show()
+fig, ax = plt.subplots(1, 1, subplot_kw={"projection": "3d"}, figsize=(10, 10))
+
+ax.scatter(times, alpha_maxes, jb_maxes)
+ax.view_init(20, -135, 0)
+ax.set_xlabel('time (s)', labelpad=10.0)
+ax.set_zlabel('max $j_B$ [A]', labelpad=10.0)
+ax.set_ylabel(r'max $\nabla p_e$ (kPa)', labelpad=10.0)
+
+plt.show()
+```
+
+```{python}
+from scipy.fft import fft, fftfreq
+
+N = len(times)
+T = times[1] - times[0]
+normed_sig = (alpha_maxes - alpha_maxes.mean()) / alpha_maxes.std()
+yf = fft(normed_sig)
+xf = fftfreq(N, T)[:N//2] 
+plt.plot(xf, 2.0/N * np.abs(yf[0:N//2]))
+plt.grid()
+plt.show()
+```
