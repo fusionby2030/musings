@@ -57,3 +57,18 @@ def get_dict_params(shot_number: int, diagnostic_signal_names: List[str], conn: 
             local_dict[dimension] = data
         pulse_dict[diagnostic_signal] = local_dict
     return pulse_dict 
+
+def get_mp_names_saved_in_arrays(data_path: str) -> list:
+    with open(os.path.join(data_path, 'mp_names_saved.txt'), 'r') as f:
+        all_names_str = f.read()
+        relevant_mp_columns = all_names_str.split(',')
+    return relevant_mp_columns
+
+def get_numpy_arrays_from_local_data(shot_number: int, local_folder_path: 'str'): 
+    pulse_string = f'{local_folder_path}/{shot_number}'
+
+    results = []
+    for key in ['PROFS', 'MP', 'RADII', 'TIME']: 
+        results.append(np.load(f'{pulse_string}_{key}.npy'))
+    
+    return results, get_mp_names_saved_in_arrays(local_folder_path)
