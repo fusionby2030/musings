@@ -10,6 +10,7 @@ project:
 html:
   code-fold: true
   page-layout: full
+  theme: cosmo
 
 website:
   title: "Musings"

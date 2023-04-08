@@ -2,6 +2,18 @@
 title: "notebook"
 ---
 
+My lab notebook, but public :D. 
+
+The views on this website/repository [my own](about.qmd). 
+
+#### License
+
+All code developed falls under the MIT license.
+
+#### Data 
+
+All data is owned by the respective EUROfusion devices, from which you can request access to yourself. There are no local copies of the data stored anywhere on this website or repository, and data used to generate figures/plots was collected and computed via the corresponding facilities interfaces. 
 
 
-The website is enabled by [Quarto](https://quarto.org). 
+
+The website itself was rendered using [Quarto](https://quarto.org). 
