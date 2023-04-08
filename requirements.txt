@@ -5,3 +5,5 @@ jupyter
 python-openstackclient 
 python-swiftclient
 ruptures
+torch
+botorch

@@ -1,0 +1,17 @@
+---
+title: "Adam Kit"
+about:
+  template: broadside
+  links:
+    - icon: github
+      text: Github
+      href: https://github/fusionby2030.com
+---
+
+Adam Kit is studying applications of machine learning towards nuclear fusion as a research assistant at Helsinki University. When not studying plasma physics or deep learning, Adam enjoys suffering in the wilderness and making music. 
+
+## Articles 
+
+TBD
+
+The website is enabled by [Quarto](https://quarto.org). 

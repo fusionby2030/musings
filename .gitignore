@@ -1,5 +1,6 @@
-# Quarto stuff 
-.jupyter_cache/
+# Data stuff 
+data/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -8,6 +9,7 @@ __pycache__/
 
 # Quarto stuff 
 .quarto/
+.jupyter_cache/
 
 # Allas stuff 
 allas-cli-utils/

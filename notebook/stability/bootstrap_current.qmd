@@ -38,8 +38,8 @@ For a toroidal plasma with twisted helical field lines, this is not the case, wh
 
 ### Gradient drift
 
-The magnetic field strength is not toroidally uniform; it is strongest closest to the donut hole, the high field side (HFS), gradually getting weaker radially outwards the edge,  the low field side (LFS) (see the @fig-full).
-The drift in particle velocity due to the gradient of the magnetic field $$v_D^{\nabla \vec{B}} = - \frac{W_\perp}{q} \frac{\nabla_T \vec{B} \times \vec{B}}{B^3}$${#eq-drift}
+The magnetic field strength is not toroidally uniform; it is strongest closest to the donut hole, the high field side (HFS), gradually getting weaker radially outwards the edge,  the low field side (LFS) (see @fig-full).
+The drift in particle velocity due to the gradient of the _toroidal_ magnetic field $$v_D^{\nabla \vec{B}} = - \frac{W_\perp}{q} \frac{\nabla_T \vec{B} \times \vec{B}}{B^3}$${#eq-drift}
 
 ### Banana regime 
 Due to the drift velocity, Particles with $v_{||} < v_\perp$ (parallel/perpendicular to magnetic field lines) can be reflected from LFS to HFS, similar to the [magnetic mirror](https://en.wikipedia.org/wiki/Magnetic_mirror). This has the result that no full poloidal turn is possible (@fig-banana-simulation) and the particles are _trapped_ in the LFS. 
@@ -59,7 +59,6 @@ The trapped particles transport energy differently. Then of interest is the frac
 
 ## Bootstrap current
 
-Due to the toroidal electric field, the radial current density profile is not flat. 
 Friction related to transport from particles in banana orbit (collisions between trapped and non-trapped particles) leads to a diffusion driven current, otherwise known as the bootstrap current. This is different than the conventional current from the central solenoid. 
 
 The current is brought on by the change in the $\nabla_T \vec{B} \times \vec{B}$ component from LFS to HFS, as the $B_{pol}$ is rotating around the outer plamsa, and $\nabla \vec{B}$ constant pointing inwards from the drift.
@@ -73,7 +72,6 @@ This corresponds to the following additional drifts:
     - electrons: opposite direction of current
 
 Since particles spend a longer time in the reflecting stage of the banana orbit (??), there is a **resulting net drift in the direction of the current**, as the trapped particlestransfer momentum to passing particles carrying the current. 
-
 The name derives itself from the idea that the particles themselves are contributing to the confining poloidal field, hence the plasma itself is bootstraping its confinement, [pulling oneself](https://erikjanvankesteren.nl/blog/2018-03-01-baron-bootstrap.html).  
 
 A simple quantitive estimation is $j_{bs} = -\sqrt{\epsilon} \frac{1}{B_\theta} \frac{dp}{dr}$, where the $B_\theta$ the poloidal field strength and $p$ the plasma pressure.
