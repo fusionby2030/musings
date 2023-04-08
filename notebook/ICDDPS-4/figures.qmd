@@ -35,67 +35,13 @@ conn = get_allas_connection()
 
 ```{python}
 
-shot_num = 33194
+shot_num = 30997
 example_pulse = get_pulse_dict(shot_num, conn)
 
 ```
-```{python}
-
-from typing import Dict, Union, Optional, List, Tuple
-def plot_time_traces_with_time_windows(pulse_dict: Dict[str, Dict[str, np.ndarray]], shot_number: Union[int, str], time_windows: Optional[List[Tuple[float, float]]] = None, subfig = None) -> None: 
-    machine_param_signals = ['efit/Rgeo','efit/k', 'efit/ahor', 'efit/delRoben', 'efit/delRuntn', 'efit/Vol', 'gas/D_tot', 'magn/IpiFP', 'magn/q95',  'magn/BTF', 'power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT']
-    global_param_signals = ['bolo/topi', 'ehtr/wdia', 'kg1l/lad3', ]
-    power_signal_names = ['power/PNBI_TOT', 'power/P_OH', 'power/PICR_TOT', 'nbip/shi']
-    magnetic_signal_names = ['magn/IpiFP', 'magn/q95', 'magn/BTF']
-    elm_param_signals = ['edg8/tbeo', 'edg8/tbei']
-    group_dict = {'MA, -, T': [('magn/IpiFP', 1e-6), ('magn/q95', 1.0), ('magn/BTF', 1.0)],
-                 'MW': [(sig, 1e-6) for sig in power_signal_names], 
-                 '$10^{22}$ e/s': [('gas/D_tot', 1e-22)], 
-                 '$10^{20}$ m$^{-3}$': [('kg1l/lad3', 1e-20)], 
-                 'MJ, MW': [('bolo/topi', 1e-6), ('ehtr/wdia', 1e-6)], 
-                 'ph/s/cm$^{2}$/sr': [('edg8/tbeo', 1e-13), ('edg8/tbei', 1e-13)]}
-
-    if subfig is None: 
-        subfig, fig_axs = plt.subplots(3, 2, figsize=(10, 10), sharex=True)
-        plotting = True
-    else:
-        fig_axs = subfig.subplots(3, 2, sharex=True)
-        plotting = False
-    fig_axs = fig_axs.ravel()
-    for i, (units, signal_scalar_tuple) in enumerate(group_dict.items()):
-        for signal_name, scalar in signal_scalar_tuple: 
-            if pulse_dict.get(signal_name) is None: 
-                continue 
-            time, data = pulse_dict[signal_name]['time'], abs(scalar*pulse_dict[signal_name]['data'])
-            if isinstance(time, str):# time.shape != data.shape: 
-                continue
-            fig_axs[i].plot(time, data, label=signal_name.split('/')[-1], lw=5)
-            if time_windows is not None: 
-                for n, (t_beg, t_end) in enumerate(time_windows): 
-                    _window_bool = np.logical_and(time >= t_beg, time <= t_end)
-                    _time, _data = time[_window_bool], data[_window_bool]
-                    _mean, _std = _data.mean(), _data.std()
-                    fig_axs[i].scatter((_time[0] + _time[-1]) / 2.0, _mean, color='black', s=75, zorder=10)
-                    
-        fig_axs[i].set_ylabel(units)
-        if units == 'MA, -, T': 
-            fig_axs[i].set_ylim(0, 6)
-
-    for ax in subfig.get_axes():
-        ax.set_xlim(40, 60)
-        ax.legend(frameon=False)
-        ax.grid()
-
-    subfig.subplots_adjust(hspace=0.0, wspace=0.4)
-    subfig.suptitle(f'JET #{shot_number}')
-    if plotting: 
-        plt.show()
-
-# plot_time_traces_with_time_windows(example_pulse, shot_num)
-```
 
 ```{python}
-
+#| eval: false
 print(example_pulse['machine_parameters'].keys())
 
 
@@ -110,11 +56,13 @@ fig = plt.figure()
 plt.plot(dw_time, p_rad)
 plt.plot(dw_time, ptot_dat)
 plt.plot(dw_time, dw_dat)
-
 ```
+
+### Time evolution of electron profiles
 ```{python}
 #| eval: false
-#| 
+#| label: profile-evolution
+#| fig-cap: "Example electron profile evolution in time"
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, PathPatch
 from matplotlib.text import TextPath
@@ -172,6 +120,349 @@ plt.savefig(f'./{shot_num}_density.svg')
 plt.show()
 
 ``` 
+
+
 ```{python}
+
+
+#| label: need-for-time-dependence
+#| fig-cap: "Plasma is time dependent, which is not necessarily captured by machine parameters"
+
+time, ne, te, radius = [example_pulse['profiles'][key].T for key in ['time', 'ne', 'Te','radius']]
+
+mp_plot_dict = {'BTF': 1.0, 'IpiFP': 1e-6, 'q95': 1.0}
+for key in ['PNBI_TOT', 'P_OH', 'PICR_TOT', 'PECR_TOT']:
+    mp_plot_dict[key] = 1e-6
+for key in ['D_tot', 'N_tot']: 
+    mp_plot_dict[key] = 1e-22
+for key in ['delRoben', 'delRuntn', 'ahor', 'Rgeo']: 
+    mp_plot_dict[key] = 1.0
+subfig_name_list = [([('BTF', 'IpiFP', 'q95'), ('$B_T$', '$I_P$', '$q_{95}$')], [0.0, 7], 'T, MA, -'), ([('PNBI_TOT', 'P_OH', 'PICR_TOT', 'PECR_TOT'), ('$P_{NBI}$', '$P_{OH}$', '$P_{ICR}$', '$P_{ECR}$')], [0.0, 15], 'MW'), ([('delRoben', 'delRuntn', 'ahor', 'Rgeo'), ('$\delta_U$', '$\delta_L$', '$a$', '$R$')], [0.0, 3.0], '-, m'), ([('D_tot', 'N_tot'), (r'$\Gamma_D$', r'$\Gamma_N$')], [0.0, 2.0], '$(e/s)^{22}$')]
+
+from matplotlib.gridspec import GridSpec
+fig = plt.figure(figsize=(20, 10))
+
+gs = GridSpec(4, 2, figure=fig)
+
+
+# idxs = [4400, 4700, 5000]
+# idxs = [2000, 2500, 3000, 3500]
+idxs = [2800, 3000, 3200, 3400, 3750]
+n_ax = fig.add_subplot(gs[0:2, 1])
+t_ax = fig.add_subplot(gs[2:, 1])
+for idx in idxs: 
+    n_ax.plot(radius[idx], ne[idx]*1e-20, label=f'{time[idx]:.3}', lw=4)
+    t_ax.plot(radius[idx], te[idx] / 1000.0, lw=4)
+
+for a in [n_ax, t_ax]: 
+    a.set_xlabel(r'$\rho$ [-]')
+    a.axvline(1.0, ls='--', color='grey', alpha=0.3)
+n_ax.set_ylabel('$n_e$ ($10^{20}$ m$^{-3}$)')
+t_ax.set_ylabel('$T_e$ (keV)')
+n_ax.legend()
+for idx, (mp_names, lims, label) in enumerate(subfig_name_list):
+    ax = fig.add_subplot(gs[idx, 0])
+    dict_names, latex_names = mp_names
+    for name, latex_name in zip(dict_names, latex_names): 
+        _time, _data = example_pulse['machine_parameters'][name]['time'], example_pulse['machine_parameters'][name]['data']
+        scalar = mp_plot_dict[name]
+        ax.plot(_time, abs(_data*scalar), label=latex_name, lw=3)
+    ax.set_ylim(*lims)
+    ax.set_xlim(time[0], time[-1])
+    ax.set_ylabel(label)
+    ax.legend(frameon=False, ncol=2)
+    ax.grid()
+
+    for t in idxs: 
+        ax.axvline(time[t], ls='--', color='black')
+
+ax.set_xlabel('time (s)')
+
+fig.subplots_adjust(hspace=0.0)
+
+fig.suptitle(f'ASDEX-Upgrade {shot_num}')
+plt.show()
+```
+
+```{python}
+
+from matplotlib import cm
+from matplotlib.colors import ListedColormap
+from typing import Union, List, Iterable
+import torch 
+def format_sci(sci_str):
+    before, after = sci_str.split('e')
+    if before.startswith('-'):  # or before.startswith('+'):
+        prefix = before[0]
+    else:
+        prefix = ''
+    return f'$ ×{prefix} 10^' + '{' + after + '}$'
+
+
+def parse_data_plot1d(data, x_first, var=None, statistics=None):
+    if len(data.shape) == 2:
+        data = data[:, :]
+    elif len(data.shape) == 3 and var is not None:
+        if x_first:
+            data = data[:, :, var]
+        else:
+            data = data[:, var, :]
+    else:
+        raise ValueError('Data must be either 2 dimensional, or 3 dimensional with the channel specific')
+    if statistics is not None:
+        data = (data * statistics[var][1]) + statistics[var][0]
+    data = np.swapaxes(data, 0, 1)  # t, x -> x, t  [so x on vertical axis, t on horizontal axis]
+    return data
+
+
+def set_ticks(ax, xticks, data_time, yticks, data_x, x_name='t (ms)', y_name='x (m)'):
+    ax.set_xlabel(x_name)
+    ax.set_xticks(xticks, [f'{tick:.2f}' for tick in data_time[xticks]], fontsize=20)
+    ax.set_ylabel(y_name)
+    ax.set_yticks(yticks, [f'{tick:.2f}' for tick in data_x[yticks]], fontsize=20)
+
+
+def plot_1d_timeseries(data_true: np.ndarray,
+                       data_time: np.ndarray = None,
+                       data_x: np.ndarray = None,
+                       data_pred: np.ndarray = None,
+                       statistics: Union[list, tuple] = None,
+                       data_pred_sd: np.ndarray = None,
+                       max_sd: float = 3,
+                       var: int = 0,
+                       x_first: bool = True,
+                       var_title: str = '',
+                       title: str = '',
+                       title_fs: float = 12,
+                       top_title: str = 'Real simulation',
+                       bottom_title: str = 'Prediction',
+                       filename: str = None,
+                       draw: bool = True,
+                       fig_h: int = 7,
+                       x_name: str = 't (s)',
+                       y_name: str = 'x (m)',
+                       dx: float = None,
+                       dt: float = None,
+                       plot_func_axes: List[callable] = None,
+                       title_axes: List[str] = None,
+                       vline_axes: List[int] = None,
+                       background: str = None,
+                       savefig_transparent: bool = False, 
+                       return_fig: bool = False):
+    """
+    Plot a 1d simulation over time in 2D, with time horizontally and space vertically.
+    Additionally, you can insert multiple simulations (e.g., true/pred and pred standard
+    deviation). A simulation can be either (time, x) or (time, x, var) / (time, var, x),
+    where "var" is specified and "x_first" denotes whether we have the former or the latter.
+    Args:
+        data_true: Numpy array of ground truth simulation
+        data_time: Numpy array of time axis
+        data_x: Numpy array of spatial axis
+        data_pred: Numpy array of predicted simulation
+        statistics: Mean and sd of the data, to unnormalize it while plotting
+        data_pred_sd: Numpy array of standard deviation of simulation (in case of e.g. ensembling)
+        max_sd: Maximum standard deviation for the legend
+        var: If data has multiple channels, which channel to display
+        var_title: Title of variable we plot (for legend)
+        title: Title of plot
+        title_fs: Fontsize of title
+        filename: Filename to save the plot to
+        draw: Whether we want to draw the plot
+        x_first: If we have multiple channels, dictate the order
+        fig_h: Height of our figure
+        x_name: X axis (time domain) name
+        y_name: Y axis (spatial domain) name
+        pred_vline: Position to draw a vertical line (e.g., from where predictions start)
+    """
+   
+    # auto convert tensor to numpy array
+    data_true = data_true.numpy() if isinstance(data_true, torch.Tensor) else data_true
+    data_time = data_time.numpy() if isinstance(data_time, torch.Tensor) else data_time
+    data_x = data_x.numpy() if isinstance(data_x, torch.Tensor) else data_x
+    data_pred = data_pred.numpy() if isinstance(data_pred, torch.Tensor) else data_pred
+
+    # parse data arrays to plot
+    data_un = parse_data_plot1d(data_true, x_first, var, statistics=None)
+    data_true = parse_data_plot1d(data_true, x_first, var, statistics)
+    if data_time is None:
+        t = data_true.shape[1]
+        if dt is None:
+            data_time = np.linspace(0, t-1, t)
+        else:
+            data_time = np.linspace(0, dt * (t-1), t)
+    if data_x is None:
+        x = data_true.shape[0]
+        if dx is None:
+            data_x = np.linspace(0, x-1, x)
+        else:
+            data_x = np.linspace(0, dx * (x-1), x)
+
+    if data_pred is not None:  # if we have a second array / prediction, parse
+        data_2_un = parse_data_plot1d(data_pred, x_first, var, statistics=None)
+        data_pred = parse_data_plot1d(data_pred, x_first, var, statistics)
+        plot_2 = True
+    else:
+        data_pred = None
+        plot_2 = False
+
+    if data_pred_sd is not None:  # if we have uncertainty, parse
+        assert plot_2 is True
+        data_pred_sd = parse_data_plot1d(data_pred_sd, x_first, var, statistics=None)
+        plot_sd = True
+    else:
+        data_pred_sd = None
+        plot_sd = False
+
+    # set up figure sizes
+    ratio = data_true.shape[1] / data_true.shape[0]
+    fig_w = fig_h * ratio
+
+    fig = plt.figure(figsize=(fig_w, fig_h), dpi=300)
+    if background is not None:
+        fig.patch.set_facecolor(background)
+    fig.suptitle(title, fontsize=title_fs)
+
+    if plot_2:
+        fig.subplots_adjust(top=0.92)
+    if plot_sd:
+        ((ax1, ax3), (ax2, ax4)) = fig.subplots(ncols=2, nrows=2)
+        axes = [ax1, ax2, ax3, ax4]
+    elif plot_2:
+        ax1, ax2 = fig.subplots(2)
+        axes = [ax1, ax2]
+    else:
+        ax1 = fig.subplots(1)
+        axes = [ax1]
+
+    # set up color map
+    hsv_modified = cm.get_cmap('Spectral', 256)
+    crange = np.flip(np.linspace(0.1, 1.0, 256), axis=0)
+    newcmp = ListedColormap(hsv_modified(crange))
+    fontsize = 11
+    if plot_2:
+        minmin = np.min([np.min(data_true), np.min(data_pred)])
+        maxmax = np.max([np.max(data_true), np.max(data_pred)])
+    else:
+        minmin = np.min(data_true)
+        maxmax = np.max(data_true)
+
+    # plot ground truth / data
+    data_color = ax1.imshow(data_true, interpolation='nearest', vmin=minmin, vmax=maxmax, cmap=newcmp)
+    if plot_2:
+        ax1.set_title(top_title, fontsize=fontsize)
+
+    # gather ticks
+    xticks = np.array(ax1.get_xticks())
+    xticks = [int(x) for x in xticks if 0 <= x < data_time.shape[0]] + [data_time.shape[0] - 1]
+    xticks = np.array(xticks)
+
+    yticks = np.array(ax1.get_yticks())
+    yticks = [int(y) for y in yticks if 0 <= y < data_x.shape[0]] + [data_x.shape[0] - 1]
+    yticks = np.array(yticks)
+
+    set_ticks(ax1, xticks, data_time, yticks, data_x, x_name=x_name, y_name=y_name)  # set tick labels
+
+    if plot_2:  # if we have a prediction, plot
+        ax2.imshow(data_pred, interpolation='nearest', vmin=minmin, vmax=maxmax, cmap=newcmp)
+        set_ticks(ax2, xticks, data_time, yticks, data_x, x_name=x_name, y_name=y_name)
+        ax2.set_title(bottom_title, fontsize=fontsize)
+
+    if plot_sd:  # if we provide uncertainty, we also plot prediction error + estimated uncertainty
+        error = np.abs(data_un - data_2_un)  # errors in normalized data
+        error[error > max_sd] = max_sd
+        error_color = ax3.imshow(error, vmin=0, vmax=max_sd, interpolation='nearest')
+        set_ticks(ax3, xticks, data_time, yticks, data_x, x_name=x_name, y_name=y_name)
+        ax3.set_title('Prediction error', fontsize=fontsize)
+
+        data_2_sd_mod = np.array(data_pred_sd)  # uncertainty estimate
+        data_2_sd_mod[data_2_sd_mod > max_sd] = max_sd  # maxes out at num_sd
+        sd_color = ax4.imshow(data_pred_sd, vmin=0, vmax=max_sd, interpolation='nearest')
+        set_ticks(ax4, xticks, data_time, yticks, data_x, x_name=x_name, y_name=y_name)
+        ax4.set_title('Prediction uncertainty', fontsize=fontsize)
+
+        # set colorbar for uncertainty
+        cax = fig.add_axes([ax3.get_position().x1 + 0.01, ax3.get_position().y0, 0.04 / ratio, ax3.get_position().height])
+        cax.set_axis_off()
+        cbar = fig.colorbar(error_color, ax=cax, fraction=.5, shrink=.8, aspect=25)
+        cbar.set_label('error (standardized)')
+
+        # set colorbar for error
+        cax = fig.add_axes([ax4.get_position().x1 + 0.01, ax4.get_position().y0, 0.04 / ratio, ax4.get_position().height])
+        cax.set_axis_off()
+        cbar = fig.colorbar(sd_color, ax=cax, fraction=.5, shrink=.8, aspect=25)
+        cbar.set_label('Standard deviation (standardized)')
+
+    if plot_2:  # set up size parameters depending on what we plot
+        shrink = .6
+        aspect = 25
+    else:
+        shrink = .8
+        aspect = 15
+    if plot_2:
+        fig.subplots_adjust(wspace=.5 / ratio, hspace=.3)
+
+    # add regular colorbar, spreading 2 axes; configuration depends on whether we plot (2,) or (2, 2)
+    if plot_sd:
+        fig.subplots_adjust(wspace=.5 / ratio, hspace=.3)
+        fig.set_size_inches(fig_w+2, fig_h)
+        cax = fig.add_axes([ax2.get_position().x1, ax2.get_position().y0, 0.07 / ratio,
+                            ax1.get_position().y1 - ax2.get_position().y0])
+        cax.set_axis_off()
+        cbar = fig.colorbar(data_color, ax=cax, fraction=.5, shrink=.5, aspect=25)
+        cbar.set_label(var_title)
+    else:
+        cbar = fig.colorbar(data_color, ax=axes, aspect=aspect, shrink=shrink, pad=0.1 / ratio)
+        cbar.set_label(var_title)
+
+    # call other plotting functions that were passed with plot_func_axes
+    if plot_func_axes is not None:
+        for i in range(len(axes)):
+            if i < len(plot_func_axes):
+                plot_func_axes[i](axes[i])  # call function with this axis
+
+    if title_axes is not None:
+        for i in range(len(axes)):
+            if i < len(title_axes):
+                axes[i].set_title(title_axes[i], fontsize=fontsize)
+
+    if vline_axes is not None:
+        for i in range(len(axes)):
+            if i < len(vline_axes):
+                if vline_axes[i] is None:
+                    continue
+                if isinstance(vline_axes[i], Iterable):
+                    for i_pos, pos in enumerate(vline_axes[i]):
+                        color = 'r' if i_pos == 0 else 'black'
+                        axes[i].axvline(pos, color=color, alpha=0.5)
+                else:
+                    axes[i].axvline(vline_axes[i], color='black', alpha=0.5)
+
+    for ax in axes:
+        handles, labels = ax.get_legend_handles_labels()
+        if len(handles) > 0:
+            ax.legend(handles, labels)
+    # save & draw
+    if filename:
+        fig.savefig(filename, bbox_inches='tight', transparent=savefig_transparent)
+        plt.close('all')
+        return fig
+    if draw:
+        plt.show()
+    else:
+        plt.close('all')
+    
+    return minmin, maxmax
+
+
+```
+
+```{python}
+#| eval: false
+#| label: alternative-view-of-time-evolution
+#| fig-cap: "Time evolution"
+filter_time = np.logical_and(time > 0, time<7)
+plot_1d_timeseries(data_x=np.array(radius[filter_time][0]), data_time=np.array(time[filter_time]), data_true=np.array(ne[filter_time]), filename=f'./{shot_num}_example_density')
+plot_1d_timeseries(data_x=np.array(radius[filter_time][0]), data_time=np.array(time[filter_time]), data_true=np.array(te[filter_time]), filename=f'./{shot_num}_example_temperature')
+
 
 ```

@@ -20,8 +20,9 @@ import mpl_toolkits.mplot3d.art3d as art3d
 import os 
 from sklearn.metrics import mean_squared_error
 
-rel_dir = '/home/kitadam/ENR_Sven/supervised_learning_jetpdb/data/jet-all-full.csv'
+rel_dir = '/home/kitadam/ENR_Sven/musings/data/jet-all-full.csv'
 jet_pdb_all = pd.read_csv(rel_dir)
+jet_pdb_all = jet_pdb_all.convert_dtypes()
 jet_pdb = jet_pdb_all[(jet_pdb_all['elongation'] != -1) & (jet_pdb_all['Zeff'] != -1)]
 jet_pdb['P_NBI(MW)'][jet_pdb['P_NBI(MW)'] < 0] = 0.0 
 jet_pdb['gasflowrateofmainspecies10^22(e/s)'][jet_pdb['gasflowrateofmainspecies10^22(e/s)'] < 0] = 0.0 

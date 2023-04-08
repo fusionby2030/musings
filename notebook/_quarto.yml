@@ -1,9 +1,30 @@
 project:
   title: "notebook"
-
+  type: website 
+  output-dir: ../docs
+  render: 
+    - "*.qmd"
+    - "!DIVA/"
+    - "!ICDDPS-4/"
+    - "!homepage/"
 html:
   code-fold: true
   page-layout: full
+
+website:
+  title: "Musings"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - about.qmd
+  sidebar: 
+    contents: auto
+    style: "docked"
+crossref:
+  fig-prefix: Fig.   # (default is "Figure")
+  tbl-prefix: Table    # (default is "Table")
+  eq-prefix: Eq.
 
 jupyter: python3
 bibliography: references.bib  

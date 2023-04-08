@@ -1,5 +1,5 @@
 ---
-title: "How does data become the model?"
+title: "Data becomes the model"
 format:
   html:
     code-fold: true
@@ -8,9 +8,9 @@ jupyter: python3
 execute: 
   echo: false
   warning: false
-fig-width: 10 
-fig-height: 10
 ---
+
+Here we will take the JET pedestal database @Frassinetti2021 and show how with large capacity modeling tools, such as XGboost @XGboost, the data used to fit becomes the model. 
 
 ```{python}
 
@@ -20,22 +20,25 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import os 
 from sklearn.metrics import mean_squared_error
-from verstack.stratified_continuous_split import scsplit
-
-rel_dir = '/home/kitadam/ENR_Sven/supervised_learning_jetpdb/data/jet-all-full.csv'
-jet_pdb_all = pd.read_csv(rel_dir)
-jet_pdb = jet_pdb_all[(jet_pdb_all['elongation'] != -1) & (jet_pdb_all['Zeff'] != -1)]
-jet_pdb['P_NBI(MW)'][jet_pdb['P_NBI(MW)'] < 0] = 0.0 
-jet_pdb['gasflowrateofmainspecies10^22(e/s)'][jet_pdb['gasflowrateofmainspecies10^22(e/s)'] < 0] = 0.0 
-jet_pdb.loc[:, 'divertorconfiguration'] = jet_pdb.loc[:, 'divertorconfiguration'].astype('category')
-jet_pdb.loc[:, 'divertorconfiguration'] = jet_pdb.loc[:, 'divertorconfiguration'].cat.codes
-jet_pdb['wall'] = [int(i) for i in (jet_pdb['shot'] < 80000).to_list()]
+# from verstack.stratified_continuous_split import scsplit
+from helper_functions import scsplit
+rel_dir = '/home/kitadam/ENR_Sven/musings/data/jet-all-full.csv'
 global_cols = ['BetaN(MHD)', 'Zeff']
 info_cols = ['shot', 't1', 't2']
 ped_cols = ['nepedheight10^19(m^-3)', 'error_nepedheight10^19(m^-3)']
 mp_cols = ['Ip(MA)', 'B(T)', 'a(m)', 'q95','averagetriangularity', 'plasmavolume(m^3)','elongation','P_NBI(MW)', 'P_ICRH(MW)', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)',   'gasflowrateofmainspecies10^22(e/s)', ]
 cat_cols = ['FLAG:Kicks', 'FLAG:RMP', 'FLAG:pellets', 'divertorconfiguration', 'Atomicnumberofseededimpurity']
 flags = ['FLAG:DEUTERIUM', 'FLAG:HYDROGEN', 'FLAG:H/Dmix', 'FLAG:HeJET-C', 'FLAG:Seeding', 'FLAG:Kicks', 'FLAG:RMP', 'FLAG:pellets', 'FLAG:HRTSdatavalidated', 'divertorconfiguration', 'Atomicnumberofseededimpurity',]
+
+jet_pdb_all = pd.read_csv(rel_dir)
+jet_pdb_all = jet_pdb_all.convert_dtypes()
+jet_pdb = jet_pdb_all[(jet_pdb_all['elongation'] != -1) & (jet_pdb_all['Zeff'] != -1)]
+jet_pdb['P_NBI(MW)'][jet_pdb['P_NBI(MW)'] < 0] = 0.0 
+jet_pdb['gasflowrateofmainspecies10^22(e/s)'][jet_pdb['gasflowrateofmainspecies10^22(e/s)'] < 0] = 0.0 
+jet_pdb.loc[:, 'divertorconfiguration'] = jet_pdb.loc[:, 'divertorconfiguration'].astype('category')
+jet_pdb.loc[:, 'divertorconfiguration'] = jet_pdb.loc[:, 'divertorconfiguration'].cat.codes
+jet_pdb['wall'] = [int(i) for i in (jet_pdb['shot'] < 80000).to_list()]
+
 if os.getenv('PLOTSTYLE') is not None: 
     plt.style.use(os.getenv('PLOTSTYLE'))
 RED = "#dd3015"
@@ -46,14 +49,15 @@ WHITE = "#FFFFFF"
 BLUE = "#2E6C96"
 
 ```
-# Splitting of the dataset into subsets
+## Splitting of the dataset into subsets
 
-1. Shot number and or wall type
-    - Artificially create the idea of gathering more data via upgrades to the device or knowledge base 
+
+We can artificially create the idea of gathering more data via upgrades to the device or knowledge base by splitting the dataset by shot number @fig-wall-split.  
 
 ```{python}
-
-fig = plt.figure()
+#| label: fig-wall-split
+#| fig-cap: "All shots before #81000 are done with a carbon wall (JET-C). After that, JET was upgrade to include an 'ITER-like wall' (JET-ILW)."
+fig = plt.figure(figsize=(7, 5), dpi=100)
 plt.scatter(jet_pdb['shot'], 1e19*jet_pdb[ped_cols[0]], color=RED, edgecolors=(0, 0, 0))
 plt.axvline(81000, color=DARK, ls='--')
 plt.ylabel('JET PDB $n_e^{ped}$ (m$^{-3}$)')
@@ -62,7 +66,8 @@ plt.annotate('JET-C', xy=(75500, 1.2e20))
 plt.annotate('JET-ILW', xy=(87500, 1.2e20))
 plt.show()
 ```
-We can preform regression on the dataset with the following splits: 
+
+We can preform regression on the following subsets of the full dataset: 
 
 1. Both JET-C and JET-ILW
 2. JET-C 
@@ -72,7 +77,9 @@ And we can compare performances on all of the above by predicting against
 
 1. JET-ILW 
 2. JET-C 
+
 ```{python}
+
 jet_c = jet_pdb[jet_pdb['shot'] < 81000]
 jet_ilw = jet_pdb[jet_pdb['shot'] > 81000]
 lorenzo_inputs = ['Ip(MA)', 'averagetriangularity', 'P_TOT=PNBI+Pohm+PICRH-Pshi(MW)', 'gasflowrateofmainspecies10^22(e/s)', 'Meff']
@@ -100,7 +107,8 @@ jet_ilw_train, jet_ilw_test = jet_ilw.loc[shuffled_idxs[:-200]], jet_ilw.loc[shu
 
 
 ```{python}
-
+#| label: dataset-splits
+#| fig-cap: "An example of training and test splits."
 # Create a Figure, which doesn't have to be square.
 fig = plt.figure(layout='constrained', figsize=(10, 10), dpi=250)
 gs = fig.add_gridspec(2, 2,  width_ratios=(4, 1), height_ratios=(1, 4),
@@ -132,14 +140,11 @@ plt.show()
 ```{python}
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-import models
 import xgboost as xgb 
-from pytorch_tabnet.tab_model import TabNetRegressor
 ```
 
 while keeping the input parameters the same: 
-
-- Lorenzo? 
+The input parameters (scalars) used for both models are: total plasma current, toroidal field strength, minor radius, total power injected, volume, $q_{95}$, eloncation, average triangularity, total gas injected. 
 
 ```{python}
 
@@ -283,7 +288,9 @@ for seed in range(15):
 ```
 
 ```{python}
-
+#| label: results
+#| fig-cap: "Comparison of XGBoost and linear regression."
+# Create a Figure, which doesn't have to be square.
 fig = plt.figure(figsize=(10, 10), dpi=300)
 
 bbox_plot = plt.boxplot([lin_results_c, lin_results_cilw, xgboost_results_c, xgboost_results_cilw], vert=True, patch_artist=True, medianprops = dict(linestyle='-', linewidth=2.5, color=WHITE))
