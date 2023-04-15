@@ -1,0 +1,138 @@
+---
+title: "Calculating stability parameters from data"
+
+execute: 
+  echo: false
+  warning: false
+---
+
+
+```{python}
+import os 
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt 
+
+if os.getenv('PLOTSTYLE') is not None: 
+    plt.style.use(os.getenv('PLOTSTYLE'))
+RED = "#dd3015"
+GREEN = "#489A8C"
+DARK = "#1C2C22"
+GOLD = "#F87D16"
+WHITE = "#FFFFFF"
+BLUE = "#2E6C96"
+# mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=[RED, GREEN, DARK, GOLD, WHITE, BLUE]) 
+from helper_functions import get_allas_connection, get_pulse_dict
+from physics_functions import calculate_boostrap_current
+conn = get_allas_connection()
+```
+
+
+## Persona nongrata
+
+
+#### Normalized Pressure Gradient
+
+As defined in @Frassinetti2021, $$\alpha = -\frac{2\partial_\psi V}{(2\pi )^2} \left( \frac{V}{2\pi^2 R}\right)^\frac{1}{2} \mu_0 \nabla p$$ where $V$ is the plasma volume enclosed by the flux surface, $R$ the major radius, and $\nabla P$ the total pressure gradient for the poloidal flux $\psi$. 
+
+We would need an equilibrium code to find $V(\psi)$, but we can make a first order approximation given $V(\psi = 1.0) = V_{\text{LCFS}}$.
+
+
+#### Bootstrap Current
+An approximation formula is given in @wesson and detailed in equation 2 from [here](bootstrap_current.qmd). To get to equation 2, we need 2 approximations. 
+
+1. Toroidal field $B_\phi(\psi)$
+  - Decreasing with $1/r^2$, starting with boundrary conditions of $B_\phi (\psi = 0.0) = B_T$
+2. q-profile 
+  - Increasing exponentially with $
+
+
+```{python}
+#| fig-width: 10 
+#| fig-height: 10
+# Typical plasma parameteers at ASDEX 
+total_plasma_volume = 14 # [m^3]
+V_psi = lambda x : total_plasma_volume*(x)**2 
+
+psi_axis = np.linspace(0, 1.0)
+fig, axs = plt.subplots(3, 1, dpi=100,sharex=True)
+axs[0].plot(psi_axis, V_psi(psi_axis), lw=3)
+axs[0].set_ylabel('$V_P$\n[m$^{-3}$]')
+axs[0].axhline(total_plasma_volume, color='black', ls='--')
+axs[0].annotate(r'$V_{LCFS}$', (0.3, total_plasma_volume + 0.1*total_plasma_volume))
+axs[0].set_ylim(0.0, total_plasma_volume + 0.5*total_plasma_volume)
+axs[0].set_yticks(np.arange(0.0, ((total_plasma_volume + 10) // 10)*10, step=10))
+toroidal_field_mag_axis = 1.8
+B_phi_psi = lambda x: (x + 1 / np.sqrt(toroidal_field_mag_axis))**(-2)
+
+
+axs[1].plot(psi_axis, B_phi_psi(psi_axis), lw=3)
+axs[1].set_ylabel('$B_\phi$\n[T]')
+axs[1].axhline(toroidal_field_mag_axis, color='black', ls='--')
+axs[1].annotate(r'$B_T$', (0.3, toroidal_field_mag_axis + toroidal_field_mag_axis*0.1))
+axs[1].set_ylim(0.0, toroidal_field_mag_axis + 1.0)
+axs[1].set_yticks([0, 1, 2], [0, 1, 2])
+q_95 = 3.0
+n = 7
+a = 1.1
+b = ((q_95 / 1.1)**(1.0 / (0.95))**n)
+q_psi = lambda x: a*(b**(x**n))
+
+axs[2].plot(psi_axis, q_psi(psi_axis), lw=3)
+axs[2].set_ylabel('q\n[-]')
+axs[2].axhline(q_95, color='black', ls='--')
+axs[2].axhline(1.1, color='black', ls='--')
+axs[2].axvline(0.95, color='black', ls='--')
+axs[2].annotate(r'$q_{95}$', (0.3, q_95 + q_95*0.1))
+axs[2].annotate("1.1", (0.3, 1.2))
+axs[2].set_ylim(0.0, q_95 + 1.5)
+axs[1].set_yticks(np.arange(0, np.round(q_95 + 1)))
+for ax in axs: 
+    ax.set_xlabel(r'$\psi$ [-]')
+    ax.label_outer()
+    ax.grid()
+    ax.axvline(1.0, color='grey', ls='--')
+    # ax.set_yticklabels([])
+fig.subplots_adjust(hspace=0.0)
+plt.show()
+```
+
+
+```{python}
+
+toroidal_field_mag_axis = 1.8
+B_phi_psi = lambda x: (x + 1 / np.sqrt(toroidal_field_mag_axis))**(-2)
+
+fig, axs = plt.subplots(1, 1, dpi=100)
+
+axs.plot(psi_axis, B_phi_psi(psi_axis), lw=3)
+axs.set_xlabel(r'$\psi$')
+axs.set_ylabel('Toroidal field [T]')
+axs.axhline(toroidal_field_mag_axis, color='black', ls='--')
+axs.axvline(0.0, color='black', ls='--')
+axs.axvline(1.0, color='black', ls='--')
+axs.annotate(r'$B_T$', (0.3, toroidal_field_mag_axis*0.9))
+plt.show()
+```
+
+```{python}
+
+q_95 = 3.0
+n = 3
+a = 1.1
+b = ((q_95 / 1.1)**(1.0 / (0.95))**n)
+
+q_psi = lambda x: a*(b**(x**n))
+
+
+fig, axs = plt.subplots(1, 1, dpi=100)
+axs.plot(psi_axis, q_psi(psi_axis), lw=3)
+axs.set_xlabel(r'$\psi$')
+axs.set_ylabel('q [-]')
+axs.axhline(q_95, color='black', ls='--')
+axs.axhline(1.1, color='black', ls='--')
+axs.axvline(0.95, color='black', ls='--')
+axs.annotate(r'$q_{95}$', (0.3, q_95*0.9))
+axs.set_ylim(0.0, q_95 + 1)
+plt.show()
+```

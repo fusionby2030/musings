@@ -10,8 +10,6 @@ about:
 
 Adam Kit is studying applications of machine learning towards nuclear fusion as a research assistant at Helsinki University. When not studying plasma physics or deep learning, Adam enjoys suffering in the wilderness and making music. 
 
-## Articles 
+## Publications 
 
-TBD
-
-The website is enabled by [Quarto](https://quarto.org). 
+TBA

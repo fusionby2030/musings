@@ -7,6 +7,8 @@ execute:
 
 fig-width: 10 
 fig-height: 10
+draft: true
+
 ---
 
 ```{python}
@@ -16,7 +18,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt 
 
-rel_dir = '/home/kitadam/ENR_Sven/supervised_learning_jetpdb/data/jet-all-full.csv'
+rel_dir = '/home/kitadam/ENR_Sven/musings/data/jet-all-full.csv'
 jet_pdb_all = pd.read_csv(rel_dir)
 
 array_dir = '/home/kitadam/ENR_Sven/ped_ssm/diva_revisted/'

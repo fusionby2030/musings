@@ -114,7 +114,7 @@ plt.show()
 In @wesson: 
 
 
-$$\langle \vec{j}_b \cdot \vec{B} \rangle = \frac{\mu_0 f(\Psi) x p_e}{D(x)} \left( c_1 \frac{\nabla p_e}{p_e} + c_2 \frac{\nabla p_i}{p_i}  + c_3 \frac{\nabla T_e}{T_e} + c_4 \frac{\nabla T_i}{T_i} \right)$$
+$$\langle \vec{j}_b \cdot \vec{B} \rangle = \frac{\mu_0 f(\Psi) x p_e}{D(x)} \left( c_1 \frac{\nabla p_e}{p_e} + c_2 \frac{\nabla p_i}{p_i}  + c_3 \frac{\nabla T_e}{T_e} + c_4 \frac{\nabla T_i}{T_i} \right)$${#eq-boostrap}
 
 where: 
 

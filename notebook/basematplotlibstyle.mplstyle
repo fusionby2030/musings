@@ -3,7 +3,7 @@ axes.titlesize : 20
 axes.labelsize : 25
 xtick.labelsize : 20
 ytick.labelsize : 20
-legend.fontsize : 15
+legend.fontsize : 20
 figure.titlesize : 30
 figure.facecolor : efd7a7
 axes.facecolor : efd7a7

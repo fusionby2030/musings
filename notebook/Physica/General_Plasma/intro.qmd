@@ -1,0 +1,100 @@
+---
+title: "Charged particle motion in electromagnetic fields"
+
+execute: 
+  echo: false
+  warning: false
+---
+
+The equation of motion of a particle of mass $m_j$ and charge $e_j$ in an electromagnetic field is given by the Lorenzt force $$m_j \frac{d\vec{v}}{dt} = e_j \left( \vec{E} + \vec{v} \times \vec{B} \right)$${#eq-lorentz} where $\vec{E}$ and $\vec{B}$ are the electric and magnetic fields, respectively. 
+
+## $\vec{B}$ Only
+
+In the absence of a electric field, we have: $$m_j \frac{d\vec{v}}{dt} = e_j \vec{v}\times \vec{B}$${#eq-lorentz-mag-only}
+
+Let's consider a uniform magnetic field is some direction. 
+
+```{python}
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import numpy as np
+
+lim_1, lim_2 = (-5, 5)
+def make_figure(): 
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot(np.zeros(100), np.zeros(100), np.linspace(lim_1, lim_2, 100), color='black')
+    ax.plot(np.zeros(100), np.linspace(lim_1, lim_2, 100), np.zeros(100), color='black')
+    ax.plot(np.linspace(lim_1, lim_2, 100), np.zeros(100), np.zeros(100),  color='black')
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_ylim(lim_1, lim_2)
+    ax.set_xlim(lim_1, lim_2)
+    ax.set_zlim(lim_1, lim_2)
+    ax.set_title('Charged Particle Trajectory')
+    return fig, ax
+
+def plot_trajectory(rp, ax): 
+    ax.plot(rp[:, 0], rp[:, 1], rp[:, 2])
+
+def plot_b_field(b_vec, ax): 
+    Bx, By, Bz = b_vec
+    x_grid = np.linspace(lim_1, lim_2, 5)
+    y_grid = np.linspace(lim_1, lim_2, 5)
+    z_grid = np.zeros_like(x_grid) - lim_2
+    X, Y, Z = np.meshgrid(x_grid, y_grid, z_grid, indexing='ij')
+
+    # Calculate magnetic field at each grid point
+    BX = Bx * np.ones_like(X)
+    BY = By * np.ones_like(X)
+    BZ = Bz * np.ones_like(X)
+    # Plot magnetic field lines
+    ax.quiver(X, Y, Z, BX, BY, BZ, color='navy', length=2.0, zorder=0)
+```
+```{python}
+
+# constants
+mu_0 = np.pi * 4e-7            # permeability of free space [kg*m*s^-2*A^-2]
+q_p = 1.602_176_634e-19        # proton charge [coulombs]
+m_p = 1.672_621_923_695_1e-27  # proton mass [kg]
+m_n = 1.674_927_498_04_1e-27
+
+# Time step and number of steps
+dt = 1e-12
+end_time = 0.00001
+num_steps = round(end_time / dt)
+
+q = 1.0*q_p # q_p 
+m = m_p # m_p + m_n
+
+Bx, By, Bz = 0.0, 0.0, 1.0
+B = np.array((Bx, By, Bz)) #  * (mu_0 / 4 / np.pi )
+fig, ax = make_figure()
+plot_b_field(B, ax)
+print(m_p / (q_p * Bz), m / (q * Bz), q_p / m_p, (q_p / m_p) / 3e8) # 3e8
+init_positions = [(0.0, 1.0, 0.0)]
+init_velocities = [(1.0 * (q / m), 0.0, 1e4), (1.0, 0.0, 0.5),]
+for init_r, init_v in zip(init_positions, init_velocities): 
+
+    x0, y0, z0 = init_r
+    vx0, vy0, vz0 = init_v
+    rp = np.empty((num_steps, 3))
+    rp[0, :] = np.array((x0, y0, z0))  # initial position 
+    vp = np.array((vx0, vy0, vz0), dtype=np.float64) # initial velocity and velocity vector
+    # Simulation loop
+    for t in range(num_steps - 1):
+        # Update position
+        rp[t+1, :] = rp[t, :] + dt*vp 
+        Ap = q / m * np.cross(vp, B)
+        vp += dt*Ap 
+
+    plot_trajectory(rp, ax)
+
+plt.show()
+
+fig = plt.figure()
+plt.plot(rp[:, 0], rp[:, 1])
+plt.scatter(x0, y0)
+plt.show()
+```

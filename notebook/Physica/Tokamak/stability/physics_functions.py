@@ -5,6 +5,36 @@ m_i = 3.3435860e-27  # Mass of an ion of deuterium (kg) kg
 m_p = 1.6726219e-27  # Mass of a proton (kg) 
 m_e = 9.10938356e-31  # Mass of an electron (kg)
 
+
+def calculate_alpha(pressure: np.ndarray, psi: np.ndarray, total_volume: float, major_radius: float, ) -> np.ndarray:
+    """Approximation of alpha as defined in eq. 3 of Frassinetti. et al., 
+    
+    Approximations: 
+    volume profile: parabolic via V = total_volume*psi**2
+
+    Parameters
+    ----------
+    pressure : np.ndarray
+        _description_
+    total_volume : float
+        _description_
+    major_radius : float
+        _description_
+
+    Returns
+    -------
+    np.ndarray
+        _description_
+    """
+    V_psi = lambda x : total_volume*(x)**2 
+    volume = V_psi(psi)
+
+    c1 = 2*np.gradient(volume) / ((2*np.pi)**2)
+    c2 = (volume / (2*np.pi*np.pi*major_radius))**(1/2)
+    grad_pressure = np.gradient(pressure)
+    return -c1*c2*grad_pressure# *mu_0
+
+
 def calculate_boostrap_current(pressure: np.ndarray, temperature: np.ndarray, density: np.ndarray, psi: np.ndarray,
                                 major_radius: float, minor_radius: float, q_95: float, toroidal_field_mag_axis: float) -> np.ndarray:
     
@@ -13,7 +43,7 @@ def calculate_boostrap_current(pressure: np.ndarray, temperature: np.ndarray, de
     This is using eq. 14.12 given in Wesson 2nd Ed. 
 
     Approximations: 
-    q profile: q(psi) = q_95 + m * (psi - 0.95) where m is a fit parameter
+    q profile: q(psi) = a*b^(psi)**3 where a = 1.1, b = ((q_95 / 1.1)**(1.0 / (0.95)))**3
     Bt profile: toroidal_field_mag_axis*np.exp(-psi / 1.0)
     x : ratio of trapped to circulating particles ~sqrt(2*inverse_aspectratio)
     collisionality (electron/ion) given by eqs. 2.15.1/2.15.2 for a single ionizied species
@@ -40,13 +70,17 @@ def calculate_boostrap_current(pressure: np.ndarray, temperature: np.ndarray, de
     x = np.sqrt(2) * np.sqrt(epsilon) 
 
     # First order approximation of torodial field as function of psi 
-    toroidal_field = toroidal_field_mag_axis*np.exp(-psi / 1.0) 
+    B_phi_psi = lambda x: (x + 1 / np.sqrt(toroidal_field_mag_axis))**(-2)
+    # toroidal_field = toroidal_field_mag_axis*np.exp(-psi) 
+    toroidal_field = B_phi_psi(psi)
     f_psi = major_radius*toroidal_field / mu_0 # Equilibrium flux function using above 
 
-    # First order approximation of q as function of psi 
-    slope_approx_q = 5.0
-    q = q_95 + slope_approx_q * (psi - 0.95)  
-
+    # First order approximation of q as function of psi -> parabolic
+    n = 7
+    a = 1.1
+    b = ((q_95 / 1.1)**(1.0 / (0.95))**n)
+    q_psi = lambda x: a*(b**(x**n))
+    q = q_psi(psi)
     # collisionality
     omega_b_i = ((epsilon)**(1/2) * (temperature  / m_i)**(1/2)) / (major_radius*q)
     omega_b_e = ((epsilon)**(1/2) * (temperature  / m_e)**(1/2)) / (major_radius*q)
@@ -98,3 +132,4 @@ def find_j_max_from_boostrap_current(bootstrap_current: np.ndarray, slice_radius
     max_pressure_grad_idx = np.where(slice_radius == max_slice_radius)[0][0]
     
     return max_bootstrap_current, max_slice_radius, max_pressure_grad_idx
+

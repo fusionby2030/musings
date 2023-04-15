@@ -1,0 +1,9 @@
+---
+title: "Some studies on plasma physics"
+
+execute: 
+  echo: false
+  warning: false
+---
+
+Some are tokamak specific, others not. 
