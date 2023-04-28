@@ -70,13 +70,14 @@ def calculate_boostrap_current(pressure: np.ndarray, temperature: np.ndarray, de
     x = np.sqrt(2) * np.sqrt(epsilon) 
 
     # First order approximation of torodial field as function of psi 
-    B_phi_psi = lambda x: (x + 1 / np.sqrt(toroidal_field_mag_axis))**(-2)
+    # B_phi_psi = lambda x: (x + 1 / np.sqrt(toroidal_field_mag_axis))**(-2) 
+    B_phi_psi = lambda x: 1 / ( x + 1 / toroidal_field_mag_axis)
     # toroidal_field = toroidal_field_mag_axis*np.exp(-psi) 
     toroidal_field = B_phi_psi(psi)
     f_psi = major_radius*toroidal_field / mu_0 # Equilibrium flux function using above 
 
     # First order approximation of q as function of psi -> parabolic
-    n = 7
+    n = 3
     a = 1.1
     b = ((q_95 / 1.1)**(1.0 / (0.95))**n)
     q_psi = lambda x: a*(b**(x**n))
@@ -114,22 +115,22 @@ def calculate_boostrap_current(pressure: np.ndarray, temperature: np.ndarray, de
 
 
 def find_j_max_from_boostrap_current(bootstrap_current: np.ndarray, slice_radius: np.ndarray): 
-     # Create a boolean mask for slice_radius values within the desired range
-    in_ped_mask = np.logical_and(slice_radius > 0.8, slice_radius < 1.1)
-    
+    # Create a boolean mask for slice_radius values within the desired range
+    in_ped_mask = np.logical_and(slice_radius > 0.6, slice_radius < 1.1)
+
     # Use the mask to index bootstrap_current and slice_radius arrays
     bootstrap_current_in_ped = bootstrap_current[in_ped_mask]
     slice_radius_in_ped = slice_radius[in_ped_mask]
-    
+    if np.isnan(bootstrap_current_in_ped).sum() > 0: # TODO: THIS IS HACK SHOULD FIX SO THAT NO NANS ARE IN THE BOOSTRAP CURRENT
+        bootstrap_current_in_ped = np.nan_to_num(bootstrap_current_in_ped, nan = -500000)
     # Find the index of the maximum value in bootstrap_current_in_ped
     max_idx = np.argmax(bootstrap_current_in_ped)
     
     # Use the max_idx to get the corresponding values of bootstrap_current and slice_radius
     max_bootstrap_current = bootstrap_current_in_ped[max_idx]
     max_slice_radius = slice_radius_in_ped[max_idx]
-    
+    # print(bootstrap_current_in_ped, max_bootstrap_current)
     # Find the index of max_slice_radius in the original slice_radius array
     max_pressure_grad_idx = np.where(slice_radius == max_slice_radius)[0][0]
-    
     return max_bootstrap_current, max_slice_radius, max_pressure_grad_idx
 

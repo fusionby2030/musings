@@ -1,5 +1,5 @@
 ---
-title: "Approximations of stability parameters"
+title: "ASDEX-U stability approximation example"
 
 execute: 
   echo: false
@@ -25,14 +25,14 @@ WHITE = "#FFFFFF"
 BLUE = "#2E6C96"
 # mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=[RED, GREEN, DARK, GOLD, WHITE, BLUE]) 
 from helper_functions import get_numpy_arrays_from_local_data
-from physics_functions import calculate_boostrap_current, find_j_max_from_boostrap_current,calculate_alpha
+from physics_functions import calculate_boostrap_current, find_j_max_from_boostrap_current, calculate_alpha
 # conn = get_allas_connection()
 
 local_dir = '/home/kitadam/ENR_Sven/ped_ssm/local_data_ptot_wmhd_plh'
 ```
 
 ```{python}
-shot_num =  35899 # 38933- no ELMs regime # 33616 37450
+shot_num =  35185 # 38933- no ELMs regime # 33616 37450
 # 35899 or 37620 or 37818
 [profiles, mps, radii, times], mp_names = get_numpy_arrays_from_local_data(shot_num, local_dir)
 ne, te = profiles[:, 0], profiles[:, 1]

@@ -1,8 +1,9 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import swiftclient
 from io import BytesIO
 import numpy as np 
 import os 
+import torch 
 def get_allas_connection() -> swiftclient.Connection: 
     _authurl = os.environ['OS_AUTH_URL']
     _auth_version = os.environ['OS_IDENTITY_API_VERSION']
@@ -72,3 +73,47 @@ def get_numpy_arrays_from_local_data(shot_number: int, local_folder_path: 'str')
         results.append(np.load(f'{pulse_string}_{key}.npy'))
     
     return results, get_mp_names_saved_in_arrays(local_folder_path)
+
+from scipy.interpolate import interp1d
+REL_COLS = ['BTF', 'IpiFP', 'D_tot', 'PNBI_TOT', 'PICR_TOT','PECR_TOT', 'P_OH', 'k', 'delRoben', 'delRuntn', 'ahor', 'Rgeo', 'q95', 'Vol']
+def map_pulse_dict_to_numpy_arrays(pulse_dict: Dict[str, Dict[str, Union[np.ndarray, Dict[str, np.ndarray]]]], return_torch=False) -> List[np.ndarray]: 
+    profile_data, mp_data = pulse_dict['profiles'], pulse_dict['machine_parameters']
+    if mp_data.get('PECR_TOT', None) is None: 
+        mp_data['PECR_TOT'] = {}
+        mp_data['PECR_TOT']['time'], mp_data['PECR_TOT']['data'] = 'NO ECRH USED', None
+
+    ida_times, ne, te, radius = torch.from_numpy(profile_data['time']), torch.from_numpy(profile_data['ne']), torch.from_numpy(profile_data['Te']), torch.from_numpy(profile_data['radius'])
+    profiles = torch.stack((ne, te), 1)
+    avail_cols = [key for key in REL_COLS if key in mp_data.keys()]
+ 
+    MP_TIME_LIST = torch.Tensor([(min(mp_data[key]['time']), max(mp_data[key]['time'])) for key in avail_cols if isinstance(mp_data[key], dict) and not isinstance(mp_data[key]['time'], str) and mp_data.get(key) is not None])
+    
+    MP_OBSERVATIONAL_END_TIME, MP_OBSERVATIONAL_START_TIME = MP_TIME_LIST.min(0)[0][1], torch.max(MP_TIME_LIST, 0)[0][0]
+    IDA_OBSERVATIONAL_END_TIME, IDA_OBSERVATIONAL_START_TIME = ida_times[-1], ida_times[0]
+    
+    t1, t2 = max(MP_OBSERVATIONAL_START_TIME, IDA_OBSERVATIONAL_START_TIME), min(MP_OBSERVATIONAL_END_TIME, IDA_OBSERVATIONAL_END_TIME)
+    
+    relevant_time_windows_bool: torch.Tensor = torch.logical_and(ida_times > t1, ida_times < t2)
+    relevant_time_windows: torch.Tensor = ida_times[relevant_time_windows_bool]
+    
+    relevant_profiles = profiles[relevant_time_windows_bool]
+    relevant_radii = radius[relevant_time_windows_bool]
+
+    relevant_machine_parameters: torch.Tensor = torch.empty((len(relevant_profiles), len(REL_COLS)))
+    
+    for mp_idx, key in enumerate(REL_COLS): 
+        relevant_mp_vals = torch.zeros(len(relevant_profiles))
+        if not mp_data.get(key): # check for key! 
+            mp_raw_data, mp_raw_time = None, None
+        else: 
+            mp_raw_data, mp_raw_time = mp_data[key]['data'], mp_data[key]['time']
+        if mp_raw_time is None or isinstance(mp_raw_time, str): # this catches whenever NBI isn't working or the string in JET pulse files 'NO_ICRH_USED'
+            pass 
+        else:
+            f = interp1d(mp_raw_time, mp_raw_data)
+            relevant_mp_vals = torch.from_numpy(f(relevant_time_windows))
+        relevant_machine_parameters[:, mp_idx] = relevant_mp_vals
+    if return_torch: 
+        return relevant_profiles, relevant_machine_parameters, relevant_radii, relevant_time_windows, REL_COLS
+    else: 
+        return relevant_profiles.numpy(), relevant_machine_parameters.numpy(), relevant_radii.numpy(), relevant_time_windows.numpy(), REL_COLS

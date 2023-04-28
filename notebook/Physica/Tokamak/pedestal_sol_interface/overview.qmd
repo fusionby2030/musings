@@ -1,0 +1,40 @@
+---
+title: "Pedestal & SOL overview"
+
+execute: 
+  echo: false
+  warning: false
+---
+
+
+![The bigger picture](./figures/integrated_modeling.png){width=95% #fig-coupling}
+
+
+As @fig-coupling suggests, we have multiple competing processes at the interface of the core, pedestal and scrape-off-layer (SOL). Traditionally, physicists have seperated core from edge, which has a somewhat good reason behind it. In reactor-scale devices (and even those on the smaller scale), the core and edge can have vastly different [collisionalities](http://fusionwiki.ciemat.es/wiki/Collisionality), and thus the gradient scales poloidally are very different for core than they are for the edge. At the end of the day, gradients drive both transport and instabilities.
+
+## Stability 
+
+Up to date understanding of PB stability in JET @Beurskens2014, @Stefanikova2020, @Tardini2023, @Saarelma2023.
+
+Currently, we observe that the pedestal region can only grow so much in terms of gradients before it hits a __stability boundrary__ @fig-stability, triggering an ELM. ELM's are considered a 'reactor killer', so we need to avoid those at all cost. We can limit that growth by increasing turbulent transport from the core, but this in turn lowers core confinement (see turbulent section below). 
+
+![Figure and comments taken from @Stefanikova2020: (1) A steep pressure gradient develops at edge, (2) pedestal growth stops at ballooning stability limit, (3) the boostrap current builds, driving the plasma ideal peeling mode unstable, (4) ELM crash](./figures/stability_curve_type_1.png){#fig-stability}
+
+Ideally, we would have the plasma sit at the stability boundrary @fig-goal. 
+
+![We want the plasma to sit at the operational point, i.e., not hitting an ELM. Figure taken form  @Stefanikova2020](figures/goal.png){#fig-goal}
+
+The tricky business is that the boundrary is not a static thershold, as any variation in gradients/densities/temperatures will lead to non-zero changes in the boundrary. Additionally, the boundrary itself is not set by a single phenomena, but rather the leading order phenomnea that effects the gradients. There are many instabilites that effect the gradients, those that have highest order impact on the pedestal are the ideal- and resistive- MHD modes. 
+
+#### How do we calcualate the boundrary? 
+
+- MISHKA for ideal
+- CASTOR for resistive
+
+
+#### How do we see this in the data? 
+
+
+## Turbulence 
+
+TBD
