@@ -1,0 +1,92 @@
+---
+title: "Vae  Overview"
+
+execute: 
+  echo: false
+  warning: false
+---
+
+## Overview 
+
+Inside a magnetic confinement fusion device lives a dynamical system which evolves on many varying spatio-temporal scales. 
+
+#### Spatial Scales
+- Subatomic/Molecular level
+  - Plasma wall interaction 
+- Orbit radius 
+  - Collisions
+- Debye sphere
+  - Something 
+- Macro turbulence 
+- MHD instabilities 
+
+#### Temporal scales 
+
+- GHz
+  - Turbulence
+  - Power injection systems 
+- MHz 
+- kHz 
+- Hz
+  - ELMs and other MHD instabilities 
+
+## Motivation 
+
+Although we can possibly compute the Hamiltonian of the entire system, the resolution needed to run such a simulation at a reactor scale size (e.g., of grid size and temporal size) would likely require more power (computationally) than actually running a device of that size, additionally probably take decades to run. 
+
+Therefore, we need fast(er), reduced models of the system. 
+
+These I group into the following: 
+
+1. Theory driven  
+2. **Experiment (data) driven**
+3. Theory-emperical hybrid 
+
+### Data driven approach 
+
+Typically we have some physics phenomena that we are trying to model. 
+Lets take a quantity of interest, the pedestal pressure. 
+
+##### Observing the plasma state 
+
+high dimensional data, and lots of it! 
+Cartoon of HRTS/IDA data + equilibria 
+
+
+All this data, but at the end we have some quantity we want to model, $\vec{x}$. We know it should be some time evolving function parametermized by at least the machine control parameters, $\vec{c}$, and possibly some stochastic elements we do not have direct control over ($\vec{\kappa}$),  $$\vec{x} = f(\vec{c}, \vec{\kappa}, t) \RightArrow f(\vec{z}, t)$$, where $z$ are some latent variables that are some unkown combination of known (control) and unkown (not directly controlled, or unaccessible) variables that pertain to modeling $\vec{x}$.   
+
+The trick is how to learn $\vec{z}$?. 
+## Enter bayes and variational bayes  
+
+From a probabilistic point of view, we want to approximate as closely as possible the following distribution: $$p(z | x) = \frac{p(x | z) p(z)}{p(x)}$$.
+
+The bottleneck in our case is the evidence, which takes into account all the values possible from $z$: 
+$$p(x) = \int p(x|z)p(z)dz$$
+
+From a fusion perspective, in reactor-scale devices, we have very little chance this is in closed form, and if so, the time needed to compute is massive. 
+
+To mitigate this problem we can: 
+- Inverse sample when we know the inverse c.d.f. of the posterior to sample (we don't)
+- Rejection sample when we only know likelihood and prior (we don't)
+- Gibbs sample when we can compute easily conditioned probabilities (they aren't)
+- MCMC when we have **access to a quantity proportional to posterior density.**
+
+For us, with big datasets of observations in a high dimensional space all of these are computationally infeasable. 
+
+But there Kingma and Welling suggest the **Variational Inference framework**. 
+
+## Variational infrenece
+
+We want to approximate the intractable posterior density, $p(z |x)$ (how do $z$ vary conditioned on observations). We consider our approximation as a family member of well known densities, and $z$ is what we have to optimize. 
+
+If we are picking a $z$ that describes our data, we would know it does so well if the marginal likelihood is high, i.e., maximizing $p(x |z)$ will help us to find optimial $z$. 
+
+
+
+Helpful links: 
+
+- https://gregorygundersen.com/blog/2018/04/29/reparameterization/
+- https://stats.stackexchange.com/questions/199605/how-does-the-reparameterization-trick-for-vaes-work-and-why-is-it-important/205336#205336
+- https://stats.stackexchange.com/questions/409995/why-is-random-sampling-a-non-differentiable-operation
+- https://www.youtube.com/watch?v=5bA6gwo36Cw
+- https://github.com/RonyAbecidan/VAE/blob/main/Report/Auto_Encoding_Variational_Bayes.pdf
