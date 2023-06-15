@@ -1,17 +1,18 @@
-# Data stuff 
+# Data stuff
 data/
-
+old/
+notebook/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Quarto stuff 
+# Quarto stuff
 .quarto/
 .jupyter_cache/
 
-# Allas stuff 
+# Allas stuff
 allas-cli-utils/
 # C extensions
 *.so
@@ -137,3 +138,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+project_2005083-openrc.sh
+
+/.quarto/

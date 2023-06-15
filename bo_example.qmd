@@ -1,0 +1,677 @@
+---
+title: "Bayesian Optimization Example for Model Validation"
+format:
+  html:
+    code-fold: true
+    page-layout: full
+    include-in-body: 
+      - text: \usepackage{algorithm2e}
+jupyter: python3
+execute: 
+  keep-ipynb: true
+---
+
+
+Given some model $f(x, \theta) \rightarrow y$, which takes inputs $x$ and free parameters $\theta$, and maps them to $y \in \mathbb{R}^d$.
+
+The validation exercise is the following: given an observed measurement or pheonemna $\hat{y}$, we aim to find $\theta$ such that $f(x, \theta) \sim \hat{y}$.
+
+## Example Model 
+
+Let's consider the model $$f(x, \alpha, \beta) = \alpha\sin(x) + \beta e^{-x}$$
+
+The free parameters are $\alpha, \beta$. 
+
+```{python}
+import matplotlib.pyplot as plt 
+import numpy as np 
+import matplotlib as mpl 
+
+model_f = lambda x, alpha, beta: (alpha*np.sin(x) + beta*np.exp(-x)) #  / gamma*np.cos(x)
+
+num_samples = 25
+x_range = np.linspace(-1, 1, num_samples)
+
+fig = plt.figure()
+for i in range(6): 
+  alpha = 4.0 * np.random.randn()
+  beta = 1.0 * np.random.randn() + 2
+  gamma = 1 * np.random.randn()
+  plt.plot(x_range, model_f(x_range, alpha, beta), label=r'$\alpha$={alpha:.2}; $\beta$={beta:.2}'.format(alpha=alpha, beta=beta))
+plt.legend()
+plt.title(r'Example Model output for various $\theta$')
+plt.ylabel(r'$f(x, \alpha, \beta)$')
+plt.xlabel('x')
+plt.ylim(-10, 10)
+plt.show()
+```
+
+Let's say we have some noisy measurements now that we want to validate the model against: 
+
+```{python}
+
+x_range = np.linspace(-1.0, 1.0, num_samples)
+alpha_target, beta_target = 7.9, 1.4
+experimental_result = model_f(x_range, alpha_target, beta_target) + 0.4*np.random.randn(x_range.shape[0])
+target_model = model_f(x_range, alpha_target, beta_target)
+fig = plt.figure() 
+plt.plot(x_range, target_model, label=r'Target $y$; $\alpha$={alpha:.2}; $\beta$={beta:.2}'.format(alpha=alpha_target, beta=beta_target), color='black', alpha=0.3)
+plt.scatter(x_range, experimental_result, label='Experiment: $\hat{y}$',)
+plt.legend()
+plt.xlabel('x')
+plt.ylim(-10, 10)
+plt.show()
+```
+The goal is then to find $\alpha = 7.9$ and $\beta = 1.4$. Additionally, it would be nice to know how certain we are about $\alpha, \beta$.
+
+## Framing validation as an optimization problem
+
+
+Formally, we want to find 
+$$\underset{{\theta \in \mathcal{D}}}{\text{argmin}} ( r(f(x, \theta), \hat{y}))$$ 
+where $r(f, \hat{y})$ is a mapping $r: \mathbb{R}^d\times\mathbb{R}^d \rightarrow \mathbb{R}^+$ describing the discrepency between the model output and experimental observation, and $\mathcal{D}$ is the space in which parameters $\theta$ are constrained. 
+
+For our example, we can use the L-2 norm as a discrepency function: $$r(f(x, \theta), \hat{y}) = | f(x, \theta) - \hat{y} | ^2_2$$
+
+To visualize the discrepency function, we can sample $\alpha, \beta$ and compute $r$. 
+```{python}
+
+from matplotlib import colors as col # .colors import Normalize
+
+alphas = np.linspace(-10, 10, 5)
+betas = np.linspace(-10, 10, 5)
+
+disc_func = lambda y, yhat: ((y - yhat)**2).mean(-1) / yhat.shape[0]# np.linalg.norm# lambda y, yhat: (y - yhat)**2
+
+grid = np.dstack(np.meshgrid(alphas, betas)).reshape(-1, 2)
+
+discs = np.empty(grid.shape[0])
+for i, pair in enumerate(grid): 
+  model_out = model_f(x_range, *pair)
+  discrepency = disc_func(model_out, experimental_result)
+  discs[i] = discrepency
+
+cm = plt.get_cmap('plasma')
+scmap = plt.cm.ScalarMappable(col.Normalize(vmin=0.0, vmax=max(discs)), cm)
+colors = scmap.to_rgba(discs)
+
+fig, axs = plt.subplots(1, 2, figsize=(12, 4))
+for c, pair in zip(colors, grid): 
+  axs[0].plot(x_range, model_f(x_range, *pair), c=c)
+axs[0].scatter(x_range, experimental_result, label='Experiment: $\hat{y}$', color='black')
+axs[1].scatter(grid[:, 0], grid[:, 1], c=discs, vmin=0, vmax=max(discs), cmap=cm)
+axs[1].scatter(alpha_target, beta_target, marker='*', s=50, color=scmap.to_rgba(disc_func(target_model, experimental_result)))
+axs[1].set_xlabel(r'$\alpha$')
+axs[1].set_ylabel(r'$\beta$')
+axs[0].set_title('Model outputs')
+axs[1].set_title(r'Discrepency Function against various $\theta$')
+fig.colorbar(scmap, ax = axs[1], label='r')
+plt.show()
+```
+
+In real world examples, we do not have direct (analytical) access to $r$. Therefore, we want to make an approximate of $r$. 
+
+## Surrogate model of $r$
+
+$r$ can be approximated by any number of functions. Therefore, a Gaussian Process Regression (GPR) is a good start. A good overview of GPRs can be found in _Rasmussen and Williams, GPML 2006_. The points relevant to this discusison are that: i) GPR defines a family (distribution) of functions, normally Guassian, and ii) like any model, a GPR has hyperparameters, typically $D + 3$ parameters, for $D$ dimensionality of the data you want to fit (in this case 2). The traditional GPR thus learns a model that outputs a distribution: 
+$$\hat{r} \sim \mathcal{N}(\mu (\theta), \sigma (\theta))$$
+
+where $\mu$ and $\sigma$ are deterimed by what are called the kernel and mean function of the GPR. The kernel and mean function have hyperparameters that we must find. Another key point is that the kernel and mean function are differentiable functions. 
+
+We are only as good as our surrogate model. To find a good surrogate model, we must find the proper hyperparameters of the kernel and mean function of the GPR. 
+
+###  Approach 1: Point-wise estimation via maximizng the log-likelihood 
+
+In this example, we will use a Gaussian likelihood GPR, i.e., we say that the probability density of observing a point $R = r(\theta)$ that is generated by a Gaussian distribution is given by: 
+
+$$P(R, \mu, \sigma) = \frac{1}{\sigma \sqrt{2\pi}} \exp \left( -\frac{(R - \mu)^2}{2\sigma^2}\right)$$
+where, one again, $\mu$ and $\sigma$ are outputs of our GPR. Notice this probability distribution has a maximum if the mean output of our GPR matches that of the point we observe, i.e., $\mu = R$. If we have mutliple points to fit, $\vec{R} = (r(\theta_1), r(\theta_2), r(\theta_3), \dots, R_i)$, then the total joint probability distribution of observing all the points is given by the product of their likelihood: 
+
+$$P(\vec{R}, \mu, \sigma) = \prod_i \frac{1}{\sigma\sqrt{2\pi}} \exp \left( -\frac{(R_i - \mu)^2}{2\sigma^2}\right)$$
+
+However, it is easy to see that with many points, we will likely hit some numerical underflow, therefore we can make use of the logarithm:, 
+$$\ln(P(\vec{R}, \mu, \sigma)) = i\ln \left(\frac{1}{\sigma \sqrt{2\pi}}\right) - \sum_i \left(\frac{(R_i - \mu)^2}{2\sigma^2}\right)$$
+
+We can then differentiate this function in order to find the maximum and apply our favourite gradient based optimizer to find the hyperparameters of the kernel and mean function that determine $\mu$ and $\sigma$. This approach is called Maximum Likelihood Estimation (MLE). **Note**: This is called point-wise because we are estimating the hyperparameters of the GP 'per point' we use to fit the GP. 
+
+Below is an example of the  'lengthscale' parameters of the covariance function, where the countours are the(negative) log-likelihood estimation. 
+
+```{python}
+import gpytorch 
+import torch 
+import botorch 
+
+model_f_torch = lambda x, alpha, beta: (alpha*torch.sin(x) + beta*torch.exp(-x)) 
+experimental_result_torch = torch.from_numpy(experimental_result)
+disc_fun_torch = torch.nn.MSELoss(reduction='none')
+
+train_x = torch.from_numpy(grid).reshape(-1, 2)
+x_range_train = torch.tile(torch.from_numpy(x_range), (train_x.shape[0], 1))
+model_output = model_f_torch(x_range_train, train_x[:, 0].unsqueeze(-1), train_x[:, 1].unsqueeze(-1))
+train_y = disc_fun_torch(experimental_result_torch.repeat((model_output.shape[0], 1)), model_output).mean(-1) / x_range_train.shape[-1]
+
+
+# We will use the simplest form of GP model, exact inference
+class ExactGPModel(gpytorch.models.ExactGP, botorch.models.gpytorch.GPyTorchModel):
+    num_outputs = 1
+    def __init__(self, train_x, train_y, likelihood):
+        super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
+        self.mean_module = gpytorch.means.ConstantMean(constant_prior=gpytorch.priors.NormalPrior(0, 1))
+        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=train_x.shape[-1]))
+    
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
+# initialize likelihood and model
+likelihood = gpytorch.likelihoods.GaussianLikelihood()
+model = ExactGPModel(train_x, train_y, likelihood)
+mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+```
+
+```{python}
+#| fig-cap: "An MLE optimization run using the Adam optimizer for GPR kernel lenghtscales (outputscales, mean function scale, and likelihood noise are fixed). Even for a uni-model landscape, if the mode is very flat, it can result in many optimizers getting stuck. This is why multiple restart optimizers are useful for global hyperparameter finding."
+
+model.likelihood.noise = torch.tensor(0.1)
+model.mean_module.constant = torch.tensor(5.750)
+model.covar_module.outputscale = torch.tensor(5.786)
+
+model.covar_module.base_kernel.lengthscale = torch.tensor([5.3, 3.535])
+
+
+lscale_1_range = torch.linspace(0.1, 20, 100)
+lscale_2_range = torch.linspace(0.1, 10, 100)
+image = np.empty((100, 100))
+for i, lscale_1 in enumerate(lscale_1_range): 
+  for j, lscale_2 in enumerate(lscale_2_range): 
+    model.covar_module.base_kernel.lengthscale = torch.tensor([lscale_1,lscale_2])
+    # model.likelihood.noise = torch.tensor(noiscale.item())
+    output = model(train_x)
+    loss = -mll(output, train_y)
+    image[i, j] = loss
+
+fig = plt.figure() 
+cax = plt.contour(lscale_1_range, lscale_2_range, image, 50)
+plt.yscale('log')
+plt.xscale('log')
+plt.xlabel(r'Length scale $\alpha$')
+plt.ylabel(r'Length scale $\beta$')
+# extent = (1.0, 20.0, 1.0, 20.0)
+#cax = plt.imshow(image, extent=extent)
+fig.colorbar(cax, label='- log-likelihood')
+
+
+likelihood = gpytorch.likelihoods.GaussianLikelihood()
+model = ExactGPModel(train_x, train_y, likelihood)
+# mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+training_iter = 200
+# Find optimal model hyperparameters
+model.train()
+likelihood.train()
+
+
+model.likelihood.noise = torch.tensor(0.1)
+model.mean_module.constant = torch.tensor(5.750)
+model.covar_module.outputscale = torch.tensor(5.786)
+
+optimizer = torch.optim.Adam(model.parameters(), lr=0.05)  # Includes GaussianLikelihood parameters
+mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+lscale_1_mle, lscale_2_mle = [], []
+for i in range(training_iter):
+    optimizer.zero_grad()
+    output = model(train_x)
+    loss = -mll(output, train_y)
+    loss.backward()
+    optimizer.step()
+    lscale_1_mle.append(model.covar_module.base_kernel.lengthscale.squeeze()[0].detach().numpy())
+    lscale_2_mle.append(model.covar_module.base_kernel.lengthscale.squeeze()[1].detach().numpy())
+
+plt.plot(lscale_1_mle,lscale_2_mle, color='black', label='Opt. route')
+plt.scatter(lscale_1_mle[0],lscale_2_mle[0], color='red', marker='*', s=200, label='Starting point')
+plt.scatter(lscale_1_mle[-1],lscale_2_mle[-1], color='salmon', marker='*', s=200, label=f'{training_iter} optimization steps', zorder=30)
+
+model.covar_module.base_kernel.lengthscale = torch.tensor([1., 1.], requires_grad=True)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.05)  # Includes GaussianLikelihood parameters
+mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+lscale_1_mle, lscale_2_mle = [], []
+for i in range(training_iter):
+    optimizer.zero_grad()
+    output = model(train_x)
+    loss = -mll(output, train_y)
+    loss.backward()
+    optimizer.step()
+    lscale_1_mle.append(model.covar_module.base_kernel.lengthscale.squeeze()[0].detach().numpy())
+    lscale_2_mle.append(model.covar_module.base_kernel.lengthscale.squeeze()[1].detach().numpy())
+
+
+plt.plot(lscale_1_mle,lscale_2_mle, color='black')
+plt.scatter(lscale_1_mle[0],lscale_2_mle[0], color='red', marker='*', s=200)
+plt.scatter(lscale_1_mle[-1],lscale_2_mle[-1], color='salmon', marker='*', s=200, zorder=30)
+
+plt.legend(loc='lower left')
+plt.show()
+```
+
+Remember, we will use the surrogate model as a proxy for finding the optimal model inputs, therefore, if we just blindly trust the MLE of hyperparameters selection, we may be wrong! In the case that we are wrong, we don't have much in terms of quantifying how uncertain we are about the wrong fit just fitting the MLE. 
+
+Regardless, for small dimensionality and sufficiently uni-modal landscape, MLE gives a decent approximation. 
+```{python}
+#| fig-cap: "MLE for all hyperparameters of GPR results in decent approximation."
+def plot_evaluation(model, likelihood, acq_suggest = None): 
+  # Set into eval mode
+  model.eval()
+  likelihood.eval()
+
+  # Test points
+  n1, n2 = 75, 75
+  alphas, betas = np.linspace(-10, 10, n1), np.linspace(-10, 10, n2)
+
+  # Make predictions
+  with torch.no_grad(), gpytorch.settings.fast_computations(log_prob=False, covar_root_decomposition=False):
+      test_x = torch.from_numpy(np.dstack(np.meshgrid(alphas, betas)).reshape(-1, 2))
+      predictions = likelihood(model(test_x))
+      mean = predictions.mean
+      x_range_test = torch.tile(torch.from_numpy(x_range), (test_x.shape[0], 1))
+      model_output = model_f_torch(x_range_test, test_x[:, 0].unsqueeze(-1), test_x[:, 1].unsqueeze(-1))
+      discrepency_output = disc_fun_torch(experimental_result_torch.repeat((model_output.shape[0], 1)), model_output).mean(-1) / x_range_test.shape[-1]
+
+  fig, ax = plt.subplots(1, 2, figsize=(10, 10))
+  extent = (alphas.min(), alphas.max(), betas.min(), betas.max())
+  ax[1].imshow(np.flip(mean.detach().numpy().reshape(n1, n2), 0), extent=extent, cmap=plt.get_cmap('plasma'))
+  
+  
+  ax[0].set_title('True Discrepency')
+  ax[0].imshow(np.flip(discrepency_output.detach().numpy().reshape(n1, n2), 0), extent=extent, cmap=plt.get_cmap('plasma'))
+  ax[1].set_title('GPR values')
+  for a in ax: 
+    a.scatter(train_x[:, 0], train_x[:, 1], color='grey')
+    a.set_xlabel(r'$\alpha$')
+    a.set_ylabel(r'$\beta$')
+    a.scatter(alpha_target, beta_target, marker='*', color='green', s=400)
+  if acq_suggest is not None: 
+    ax[1].scatter(*acq_suggest[0], color='red', label='Acquisition Suggestion', s=400, marker='*')
+  else: 
+    ax[1].scatter(*test_x[torch.argmin(mean)], color='red', label='Current optimum')
+  plt.show()
+
+likelihood_mle = gpytorch.likelihoods.GaussianLikelihood()
+model_mle = ExactGPModel(train_x, train_y, likelihood)
+# mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+training_iter = 300
+model_mle.train()
+likelihood_mle.train()
+
+optimizer = torch.optim.Adam(model_mle.parameters(), lr=0.05)  # Includes GaussianLikelihood parameters
+
+mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood_mle, model_mle)
+
+for i in range(training_iter):
+    optimizer.zero_grad()
+    output = model_mle(train_x)
+    loss = -mll(output, train_y)
+    loss.backward()
+    optimizer.step()
+print("Iter %d/%d - Loss: %.3f   lengthscales: %.3f, %.3f   noise: %.3f  mean length: %.3f  outputscale: %.3f" % (i + 1, training_iter, loss.item(),
+    model_mle.covar_module.base_kernel.lengthscale.squeeze()[0],
+    model_mle.covar_module.base_kernel.lengthscale.squeeze()[1],
+    model_mle.likelihood.noise.item(), 
+    model_mle.mean_module.constant, 
+    model_mle.covar_module.outputscale,
+))
+
+plot_evaluation(model_mle, likelihood_mle)
+```
+
+Generally, the fit is alright. It's nice how we already have a close approximation of what should be the optimal value! 
+
+### Approach 2: Marginalizing the hyperparameters out
+
+According to Bayesian formalisim [^1], we should start with a prior distribution over the hyperparameters, $P(\text{hyper})$, which is in turn modified using training data $\theta$ to produce a posterior $P(\text{hyper}|\theta)$. To make predictions, we should then integrate over the posterior. With the above example, the predicted mean output of the GPR is $\hat{\mu}(\theta_i)$ for a given input $\theta_i$ is: 
+
+$$\hat{\mu} (\theta_i) = \int \mu_{\text{hyper}} (\theta_i) P(\text{hyper}|\theta) d\text{hyper}$$ 
+where $\mu_{\text{hyper}}$ is the preidcted mean for a particular value of $\text{hyper}$. 
+
+In this simple case, this is actually analytically feasable, but with fusion models, typically not. Therefore, we can apply MCMC and its friends. So we perscribe priors distributions over $P(\text{hyper})$ and use MCMC to give us samples from the posterior. 
+
+[^1]: This formulation is more or less copied directly from _Gaussian Processes for Regression_ from Williams and Rasmussen. 
+
+More details on this method are found at the bottom of the page, but for now I just show the results of MCMC integration with NUTS.  
+
+![Example MCMC Chains from integratin](./figures/MCMC_CHAINS_EXAMPLE.png)
+
+We can then take draws from the above posterior distributions. 
+
+```{python}
+#| eval: false
+pyro_dict = torch.load('./pyro_mcmc_out.pth')
+state_dict = torch.load('./example_model.pth')
+likelihood = gpytorch.likelihoods.GaussianLikelihood()
+model = ExactGPModel(train_x, train_y, likelihood)
+model.load_strict_shapes(False) 
+model.load_state_dict(state_dict)
+model.pyro_load_from_samples(pyro_dict)
+
+
+for key, val in model.named_parameters(): 
+    if key in ['mean_module.raw_constant']: 
+        num_draws = val.shape[0]
+        
+model.eval()
+likelihood.eval()
+
+n1, n2 = 75, 75
+alphas, betas = np.linspace(-10, 10, n1), np.linspace(-10, 10, n2)
+
+# Make predictions
+with torch.no_grad(), gpytorch.settings.fast_computations(log_prob=False, covar_root_decomposition=False):
+    test_x = torch.from_numpy(np.dstack(np.meshgrid(alphas, betas)).reshape(-1, 2))
+    expanded_test_x = test_x.unsqueeze(0).repeat(num_draws, 1, 1)
+    
+    predictions = likelihood(model(expanded_test_x))
+    mean_out_samples = predictions.mean
+    x_range_test = torch.tile(torch.from_numpy(x_range), (test_x.shape[0], 1))
+    model_output = model_f_torch(x_range_test, test_x[:, 0].unsqueeze(-1), test_x[:, 1].unsqueeze(-1))
+    discrepency_output = disc_fun_torch(experimental_result_torch.repeat((model_output.shape[0], 1)), model_output).mean(-1) / x_range_test.shape[-1]
+
+fig, axs = plt.subplots(3, 2, figsize=(8, 15))
+ax = axs.ravel()
+extent = (alphas.min(), alphas.max(), betas.min(), betas.max())
+
+ax[0].set_title('True Discrepency')
+ax[0].imshow(np.flip(discrepency_output.detach().numpy().reshape(n1, n2), 0), extent=extent, cmap=plt.get_cmap('plasma'))
+ax[1].set_title('GPR Mean Realization')
+ax[1].imshow(np.flip(mean_out_samples.mode(0)[0].detach().numpy().reshape(n1, n2), 0), extent=extent, cmap=plt.get_cmap('plasma'))
+ax[1].scatter(*test_x[torch.argmin(mean_out_samples.mode(0)[0])], color='red', label='Current optimum')
+
+to_plot = 114
+for k, to_plot in enumerate([100, 8, -1, 650]):
+    ax[2+k].imshow(np.flip(mean_out_samples[to_plot].detach().numpy().reshape(n1, n2), 0), extent=extent, cmap=plt.get_cmap('plasma'))
+    ax[2+k].scatter(*test_x[torch.argmin(mean_out_samples[to_plot])], color='red', label='Current optimum')
+    ax[2+k].set_title(f'GPR Sample {to_plot} Realization')
+    
+for a in ax: 
+    a.set_xlabel(r'$\alpha$')
+    a.set_ylabel(r'$\beta$')
+    a.scatter(alpha_target, beta_target, marker='*', color='green', s=400)
+plt.show()
+```
+
+![Example draws from posterior realization](./figures/MCMC_POSTERIOR_REALIZATION.png)
+
+Now that we have a fitted surrogate model, we would like a way to query it to obtain new points ($\alpha, \beta$), that hopefully better fit the experimental data with our model.
+
+## Aquiring new points from the surrogate model
+
+This is done using an _aquisition function_: 
+$$ \alpha (\theta | \text{hyper}): \mathcal{R}^d \rightarrowtail \mathcal{R}$$
+
+They essentially measure the quality of a point $\theta$ (here once again our $\alpha, \beta$), and decide at which location of $\theta \in \mathcal{D}$ is most 'promising'. The acquisition function is based on our surrogte models predictive distribution $p(R | \theta, \text{hyper})$. Usually, the acquistion function depends on the posterior mean prediction, $\mu(\theta)$, and the associated posterior uncertainty, $\sigma(\theta)$. 
+
+A popular acquisition function is the Expected improvement [Source]: 
+$$\alpha_{\text{EI}} (\theta | \text{hyper}) = \mathcal{E}_{p(R | \theta, \text{hyper})} \left[ \text{min}(R^* - R(\theta), 0 )\right]$$ 
+
+where $R^*$ is the best function value observed so far, i.e., minimum discrepency. This measures the expected negative improvement (since we are minimizing) over the best function value observed so far. 
+
+The way we use the acquisition function will change depending on if we took approach 1 or 2 from above. 
+
+### Approach 1: Using the MLE surrogate 
+
+From our surrogate model with $\text{hyper}$ determined by MLE, we can plug in $\mu$, $\sigma$ into the above equation.  
+
+
+```{python}
+model_mle.eval() 
+likelihood_mle.eval()
+
+import botorch 
+
+
+acq_fun = botorch.acquisition.analytic.ExpectedImprovement(model_mle, best_f = train_y.min(), maximize=False)
+
+bounds = torch.stack([torch.ones(2)*-10, torch.ones(2)*10.0])
+candidate, acq_val = botorch.optim.optimize_acqf(acq_fun, bounds=bounds, q=1, num_restarts=5, raw_samples=20)
+plot_evaluation(model_mle, likelihood_mle, candidate)
+```
+
+We can see already that the MLE optimized model gives a very good first guess on where to sample from next! 
+
+### Approach 2: Using the integrated predictive posterior
+
+Since we have marginalized out the hyperparameters, our aquisition function becomes: 
+
+$$\text{acq}(x | R, X) = \int \text{acq}(x|\text{hyper}) P(\text{hyper}|R) d\text{hyper}$$
+
+but since we have performed MCMC integration, this is discretized: 
+
+$$\text{acq}(x | R) \approx \frac{1}{M} \sum_{m=1}^M \text{acq}(x | \text{hyper}^m )$$ 
+
+where ${\text{hyper}^1, \dots, \text{hyper}^m}$ are samples drawn from  $p(\text{hyper}|R)$. In essence, we draw models via the hyperparameter posterior, $\theta$, which yield us $\mu$, $\sigma$ for each model, and apply the acquisition function to each, averaging over all outputs as our desired point. 
+
+
+![Example acquisition function by averaging over GP integration realizations](./figures/ACQ_OVER_MCMC_INT.png)
+
+## Putting it all together
+
+The full BO algorithm looks like the following: 
+![Bo Algorithm](./figures/bo_algorithm.png)
+
+Lets show the evolution in practice. 
+
+
+
+# Further notes 
+
+#### MCMC practice 
+
+To do this in practice, we need to know more about the underlying GPR model, and how it learns from the data. 
+
+##### GPR as combination of kernel and mean function 
+
+##### Mean Function 
+
+##### Kernel
+
+$$k_\text{RBF}(x_i, x_j) = \sigma_f^2 \exp\left(-\sum_{i=1}^{d}\frac{\left(x_{i,k} - x_{j,k}\right)^2}{2l_k^2}\right)$$
+where $l_k$ and $\sigma$ are the hyperparameters parameters of the kernel function. 
+
+#### Together
+
+We use the **pymc3** library to do the MCMC sampling [^2]. 
+
+[^2]: The [gpytorch example](https://docs.gpytorch.ai/en/stable/examples/01_Exact_GPs/GP_Regression_Fully_Bayesian.html) uses pyro, but I found this to be a nightmare and didn't work. 
+```{python}
+#| eval: false
+#| echo: true
+likelihood = gpytorch.likelihoods.GaussianLikelihood()
+model = ExactGPModel(train_x, train_y, likelihood)
+mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+X = mll.model.train_inputs[0].numpy() 
+y = mll.model.train_targets.numpy()
+d = X.shape[1] 
+
+gp_noise_prior = None 
+noise_size = mll.likelihood.noise_covar.noise[0].item()
+
+n_lengthscales = mll.model.covar_module.base_kernel.raw_lengthscale.numel()
+ard_dim = n_lengthscales if n_lengthscales > 1 else 1
+
+import arviz as az
+import pymc3 as pm 
+with pm.Model() as model: 
+  ls_mu = 20.0/3.0
+  os_mu = 1.0 
+  ls_prior = pm.HalfNormal('lengthscale', ls_mu, shape=ard_dim)
+  os_prior = pm.HalfNormal('outputscale', 3.0)
+  mean_prior = pm.HalfNormal('constant', 2.0)
+  noise_prior = pm.LogNormal('noise', 1.0)
+
+  cov = pm.gp.cov.Exponential(d, ls=ls_prior)
+  cov *= pm.gp.cov.Constant(os_prior)
+  mean_func = pm.gp.mean.Constant(mean_prior)
+  gp = pm.gp.Marginal(cov_func=cov, mean_func=mean_func)
+
+  _ = gp.marginal_likelihood("y", X=X, y=y, noise=noise_prior)
+with model: 
+   trace = pm.sample(draws = 4000, tune=100, chains=8, compute_convergence_checks=True, target_accept=0.95, return_inferencedata=False, n_init=1000)
+   prior = pm.sample_prior_predictive()
+   posterior_predictive = pm.sample_posterior_predictive(trace)
+   data = az.from_pymc3(trace=trace, prior=prior, posterior_predictive=posterior_predictive)
+```
+
+
+
+
+
+```{python}
+#| eval: false
+likelihood = gpytorch.likelihoods.GaussianLikelihood()
+model = ExactGPModel(train_x, train_y, likelihood)
+# mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+training_iter = 100
+# Find optimal model hyperparameters
+model.train()
+likelihood.train()
+
+# Use the adam optimizer
+optimizer = torch.optim.Adam(model.parameters(), lr=0.05)  # Includes GaussianLikelihood parameters
+
+# "Loss" for GPs - the marginal log likelihood
+mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+for i in range(training_iter):
+    optimizer.zero_grad()
+    output = model(train_x)
+    loss = -mll(output, train_y)
+    loss.backward()
+    optimizer.step()
+print("Iter %d/%d - Loss: %.3f   lengthscales: %.3f, %.3f   noise: %.3f  mean length: %.3f  outputscale: %.3f" % (i + 1, training_iter, loss.item(),
+    model.covar_module.base_kernel.lengthscale.squeeze()[0],
+    model.covar_module.base_kernel.lengthscale.squeeze()[1],
+    model.likelihood.noise.item(), 
+    model.mean_module.constant, 
+    model.covar_module.outputscale,
+))
+
+plot_evaluation(model, likelihood)
+```
+
+
+Now that we have a surrogate of $r$, we would like to now start trying to minimize it efficiently, i.e., we need an approach to start _aquiring_ new points $\alpha, \beta$, with the goal of finding $\underset{{\alpha, \beta}}{\text{argmin}} ( r(\alpha, \beta))$ with the least amount of new points possible. 
+
+## Acquisition function 
+
+TBD not finished yet. 
+
+### BACKUP: notes on GPRs
+
+
+GPR defines a family of functions 
+$$ f(\boldsymbol{x}) \sim \mathcal{GP}(m(\boldsymbol{x}), k(\boldsymbol{x},\boldsymbol{x'}))$$
+
+where $m(\boldsymbol {x}) = \mathbb {E}[f(\boldsymbol {x})]$ is a mean function, a $k(\boldsymbol {x},\boldsymbol {x'}) = \mathbb {E}[(f(\boldsymbol {x}) - m(\boldsymbol {x}))(f(\boldsymbol {x'}) - m(\boldsymbol {x}'))]$ is a covariance function, or kernel. 
+
+
+The mean function suggests how the expectation of the output,$f$, will change as $\boldsymbol {x}$ changes. If the mean function is $0$, then as we change $\boldsymbol {x}$,  variance of the mean of $f$ will also not change. 
+
+The kernel describes the point-to-point variance of $f$, in other words, the smoothness assumption on the possible functions of $f$. A common kernel function is the RBF: 
+$$k_\text{RBF}(x_i, x_j) = \sigma_f^2 \exp\left(-\sum_{i=1}^{d}\frac{\left(x_{i,k} - x_{j,k}\right)^2}{2l_k^2}\right)$$
+where $l$ and $\sigma$ are the free parameters of the kernel model. **These parameters need to be fit.**
+
+An example is given below of a GPR with RBF kernel and Constant Mean, fit on the grid of points given before. I modify the output and length scale to show how the function changes. Then, I plot mean output of the GPR, i.e., the Expectation over the family of functions output.  
+
+
+```{python}
+#| eval: false
+likelihood = gpytorch.likelihoods.GaussianLikelihood()
+model = ExactGPModel(train_x, train_y, likelihood)
+# mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+training_iter = 100
+# Find optimal model hyperparameters
+model.train()
+likelihood.train()
+
+# Use the adam optimizer
+optimizer = torch.optim.Adam(model.parameters(), lr=0.05)  # Includes GaussianLikelihood parameters
+
+# "Loss" for GPs - the marginal log likelihood
+mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+for i in range(training_iter):
+    optimizer.zero_grad()
+    output = model(train_x)
+    loss = -mll(output, train_y)
+    loss.backward()
+    optimizer.step()
+print("Iter %d/%d - Loss: %.3f   lengthscales: %.3f, %.3f   noise: %.3f  mean length: %.3f  outputscale: %.3f" % (i + 1, training_iter, loss.item(),
+    model.covar_module.base_kernel.lengthscale.squeeze()[0],
+    model.covar_module.base_kernel.lengthscale.squeeze()[1],
+    model.likelihood.noise.item(), 
+    model.mean_module.constant, 
+    model.covar_module.outputscale,
+))
+
+plot_evaluation(model, likelihood)
+```
+
+```{python}
+#| eval: false
+# Set into eval mode
+model.eval()
+likelihood.eval()
+
+# Initialize plots
+
+# Test points
+n1, n2 = 75, 75
+alphas, betas = np.linspace(-10, 10, n1), np.linspace(-10, 10, n2)
+
+# Make predictions
+with torch.no_grad(), gpytorch.settings.fast_computations(log_prob=False, covar_root_decomposition=False):
+    # test_x = torch.stack([xv.reshape(n1*n2, 1), yv.reshape(n1*n2, 1)], -1).squeeze(1)
+    test_x = torch.from_numpy(np.dstack(np.meshgrid(alphas, betas)).reshape(-1, 2))
+    predictions = likelihood(model(test_x))
+    mean = predictions.mean
+    x_range_test = torch.tile(torch.from_numpy(x_range), (test_x.shape[0], 1))
+    model_output = model_f_torch(x_range_test, test_x[:, 0].unsqueeze(-1), test_x[:, 1].unsqueeze(-1))
+    discrepency_output = disc_fun_torch(experimental_result_torch.repeat((model_output.shape[0], 1)), model_output).mean(-1) / x_range_test.shape[-1]
+
+fig, ax = plt.subplots(1, 2, figsize=(10, 10))
+# ax[1].scatter(test_x[:, 0], test_x[:, 1], c=mean.detach().numpy(), vmin=0, vmax=max(mean), cmap=cm)
+# print(test_x[torch.argmin(discrepency_output)], min(discrepency_output), test_x[torch.argmin(mean)])
+extent = (alphas.min(), alphas.max(), betas.min(), betas.max())
+ax[1].imshow(np.flip(mean.detach().numpy().reshape(n1, n2), 0), extent=extent, cmap=plt.get_cmap('plasma'))
+ax[0].scatter(*test_x[torch.argmin(discrepency_output)], color='black')
+ax[1].scatter(*test_x[torch.argmin(mean)], color='red', label='Current optimum')
+ax[0].set_title('True Discrepency')
+ax[0].imshow(np.flip(discrepency_output.detach().numpy().reshape(n1, n2), 0), extent=extent, cmap=plt.get_cmap('plasma'))
+axs[1].scatter(train_x[:, 0], train_x[:, 1], color='grey', s=40)
+# cax = ax[1].imshow(mean.detach().numpy().reshape(n1, n2), extent=extent, cmap=plt.get_cmap('plasma'))
+ax[1].set_title('GPR values')
+# fig.colorbar(cax, ax=ax[1])
+plt.show()
+```
+
+##### Relevant papers
+
+- https://arxiv.org/pdf/1206.2944.pdf
+- https://proceedings.neurips.cc/paper_files/paper/1995/file/7cce53cf90577442771720a370c3c723-Paper.pdf
+- https://doi.org/10.1016/j.nucengdes.2018.06.004
+- https://doi.org/10.1017/S0022377822001210
+- https://arxiv.org/pdf/2105.00894v1.pdf
+  - [code](https://github.com/georgedeath/how-bayesian-should-BO-be/blob/master/fbbo/gp.py)
+- [Rasmussen](http://gaussianprocess.org/gpml/chapters/RW5.pdf)
+- [Marganlizing with sequential MC](https://arxiv.org/pdf/1502.01908.pdf)
+- https://proceedings.neurips.cc/paper/2012/file/05311655a15b75fab86956663e1819cd-Paper.pdf
+  - Arxiv: https://arxiv.org/pdf/1206.2944.pdf
+##### Relevant code links 
+
+- [Hyperparameters in gpytorch](https://docs.gpytorch.ai/en/stable/examples/00_Basic_Usage/Hyperparameters.html)
+- [Fully bayesian sampling](https://docs.gpytorch.ai/en/stable/examples/01_Exact_GPs/GP_Regression_Fully_Bayesian.html)
+- [Robust Fully Bayesian](https://betanalpha.github.io/assets/case_studies/gp_part3/part3.html#4_adding_an_informative_prior_for_the_length_scale)

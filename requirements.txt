@@ -6,4 +6,5 @@ python-openstackclient
 python-swiftclient
 ruptures
 torch
+gpytorch 
 botorch

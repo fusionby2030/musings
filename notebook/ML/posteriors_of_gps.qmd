@@ -69,16 +69,19 @@ We can actually recreate Figure 8 from @Frassinetti2021.
 
 ```{python}
 
-power_scan = torch.linspace(5, 25, 100)
-gas_scan = torch.linspace(0, 3, 100)
+NUM_SAMPLES = 100 
+
+power_scan = torch.linspace(5, 25, NUM_SAMPLES)
+gas_scan = torch.linspace(0, 3, NUM_SAMPLES)
 
 current = 3.5 # 2.5
 t_u = 0.21
 t_l = 0.27
 bt = mps_full[:, 3].mode()[0].item()
 
-# print(bt)
-grid = torch.zeros((100, 100, 2))
+# Create a of grid parameters NB: This is inneficient, I think one can do the 
+
+grid = torch.zeros((NUM_SAMPLES, NUM_SAMPLES, 2))
 for i, pow_val in enumerate(power_scan): 
     for j, gas_val in enumerate(gas_scan): 
         loc = torch.tensor([pow_val, gas_val]).squeeze()

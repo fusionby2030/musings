@@ -27,6 +27,8 @@ crossref:
   tbl-prefix: Table    # (default is "Table")
   eq-prefix: Eq.
 
+freeze: 
+  true 
 jupyter: python3
 bibliography: references.bib  
 csl: nature.csl

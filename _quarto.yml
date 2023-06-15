@@ -1,0 +1,26 @@
+project:
+  title: "musings"
+  type: book
+  output-dir: docs
+  
+book:
+  title: Musings
+  author: Adam Kit
+  repo-url: https://github.com/fusionby2030/musings
+  repo-branch: master
+  repo-actions: [issue]
+  chapters:
+    - index.qmd
+    - part: Tokamak
+      chapters:
+        - bootstrap_current.qmd
+    - part: Bayes
+      chapters:
+        - bo_example.qmd
+bibliography: references.bib
+
+format:
+  html:
+    theme: cosmo
+  pdf:
+    documentclass: scrreport
