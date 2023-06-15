@@ -1,0 +1,162 @@
+---
+title: "Overview of core-edge integration"
+author: "Adam Kit"
+format: beamer
+---
+
+## Core-edge integration revolves around maintaining high pressure while respecting plasma facing components
+
+
+:::: {.columns}
+
+::: {.column width="40%"}
+
+High $p_e^{ped}$ is desired: 
+
+1. Maximizing pressure $\equiv$ maximizing fusion output (see lawson criterion).
+2. Stiff gradients in core ($\nabla p \sim 0$) beget need for pedestal. 
+
+:::
+
+::: {.column width="60%"}
+![It's _gradients_ all the way down; heat and particle transport is driven by gradients in the core *and* edge](./figures/integrated_modeling.png){#fig-coupling}
+:::
+
+::::
+
+But we need to maximize $p_e^{ped}$ _safely_, i.e., while respecting heat loads on PFC materials
+
+## Achieving high $p_e^{ped}$ requires a balancing act of multiple competing processes, e.g., core
+
+
+
+:::: {.columns}
+
+
+::: {.column width="66%"}
+![Sawtooth instability drops $T_e^{core}$ and displaces plasma towards edge. @wesson](./figures/sawtooth-transport.png){height=5cm}
+
+Instabilities lead to turbulence which drive heat and particle transport along field lines (from core to wall). \newline
+Turbulence good for reducing core impurities but too much leads to bad confinement.
+:::
+
+::: {.column width="33%"}
+
+Current- and q-profile tailoring leads to increased/decreased turbulence.\newline 
+We can 'see' turbulence from the high frequency (MHZ) oscillations of density gradient profiles via reflectometry.
+:::
+
+
+::::
+
+## Achieving high $p_e^{ped}$ requires a balancing act of multiple competing processes, e.g., pedestal
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+The P-B stability boundary sets the pedestal height/width.
+
+![](./figures/exp_stability_boundary.png){height=5cm}
+:::
+
+
+::: {.column width="50%"}
+![](./figures/stability_curve_type_1_annotated.png){height=5cm}
+
+Hitting the boundary triggers an ELM crash. Goal would be to sit below the boundary. 
+:::
+::::
+
+## Achieving high $p_e^{ped}$ requires a balancing act of multiple competing processes, e.g., pedestal
+
+:::: {.columns}
+
+::: {.column width="33%"}
+
+The P-B stability boundary sets the pedestal height/width. \newline
+
+- Ideal (plasma perfect conductor)
+- Resistive (not) \newline
+
+Both happen, but the one that limits the ped. is the 'leading order gradient maker'
+:::
+
+
+::: {.column width="66%"}
+
+![Larger machines (JET)@Beurskens2014 with metal wall observed to be non-ideal PB limited.](./figures/ideal_vs_resistive.png){height=5cm}
+
+One must choose whether to calculate ped. based on resistive or ideal MHD stability, there is no current 'interpolation'. \newline 
+:::
+::::
+
+## (intermezzo) Pedestal plasma behaviour could be represented topologically? e.g., cyclical crashing (circle), increasing/decreasing of magnitude of boundary (cylinder)
+
+![](./figures/example_cylinder.png)
+
+Experimental data above, but thinking of applying the Diffusion-VAEs to project latent space to surface of cylinder. 
+
+
+## Achieving high $p_e^{ped}$ requires a balancing act of multiple competing processes, e.g., SOL, or how to not burn wall
+
+:::: {.columns}
+
+::: {.column width="40%"}
+
+As we get to reactor-scale devices, the width of the LCFS tube, $\lambda_q$, decreases unfavourably with plasma current @Eich2013. \newline 
+
+Therefore, if and when an ELM hits, we need to be clever about ways to mitigate heat within such a narrow tube. 
+
+:::
+::: {.column width="60%"}
+
+!['Eich' scaling @Eich2013, ITER/DEMO will be way off to the right.](./figures/eich_scaling.jpg)
+:::
+
+::::
+
+## Achieving high $p_e^{ped}$ requires a balancing act of multiple competing processes, e.g., SOL, or how to not burn wall
+
+:::: {.columns}
+
+::: {.column width="40%"}
+
+One way is to *detach* the plasma from the wall by making a 'cloud' of neutral impurities, e.g., Nitrogen/Neon, that are ionized by hot particles passing by, radiating the energy away. 
+
+![Control $f_{rad}$ @Pitts2019](./figures/controling_frad_pitts.png){height=3cm}
+
+:::
+
+
+::: {.column width="60%"}
+![XPR from @Bernert2020](./figures/xpr-bernart.png){height=4.5cm}
+
+We can 'control' the heat flux/radiation front via controlling the neutral pressure, i.e., how much impurities we are pumping. 
+
+:::
+
+::::
+
+## Other noteworthy influenes on the pedestal that were not mentioned
+
+We can limit pedestal growth such that PB-boundary is never hit (ELM-free) via impurities @Kallenbach2020. \newline
+
+ELM's can also be paced @Lang2004: 
+
+- Literally kicking the plasma up and down at the frequency of the ELM.
+- Throwing small pellets of ice at the the frequency of the ELM. \newline
+
+ELMs are a pertubation of the magnetic flux surface, so we can apply 'error-correcting' perturbations back (RMPs) @Liang2007. \newline 
+
+These are all promising, but a ultimately a combination of all will be needed for ITER/DEMO.\newline 
+
+## In brief
+
+- Pedestal is the everything bagel, in that everything influences it, and it is the key parameter for reactor.
+- Ultimately, the pedestal growth is driven by MHD instablities, limited by core turbulence, followed by corrections/degredations from SOL conditions. 
+- We can not have full on ELM's (hitting the MHD stability boundary) in reactors, but there exist some solutions to mitigate ELM's. \newline 
+
+$\Rightarrow$ probably need a kitchen-sink appraoch to applying representation learning. 
+
+## References

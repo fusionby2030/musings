@@ -1,0 +1,66 @@
+---
+title: "Europed shenanigans"
+
+execute: 
+  echo: false
+  warning: false
+---
+
+### Execution graph 
+
+0. Read input file
+1. Calculate $N$ equilibrium using europed config file
+    - each $N$ is a different width 
+    - In the end, write namelist file to pass to helena -> `fort.10`
+2. For each equilbrium generated, execute helena 
+    - Requires a bash script to do so
+3. For each output of HELENA, run MISHKA for given mode numbers $K$ times 
+4. ??
+
+## Read input file 
+
+Want to divide input into sub inputs for each component: 
+
+- Device: JET or MAST
+    - GLOBAL DEVICE INIT
+        - `device_name`
+        - `EFIT` ? 
+        - makes the equilibrium boundary based on geometric quantities: 
+            - The following variables in device are set: `a, rvac, eps, elong, uppertria, lowertria, tria, average_a, bdata, rf, zf, area, circumference, surfacearea`
+            - `flushsurface` ?? 
+            - if `paramshape` is True, then we use the bnd file from JET
+                - `bndfile`, `smoothbnd`, `symmetric`, `doublenull`, `softxpnt`
+            - If not, we rely on another parameter `fit_parameterised_boundary`, which if it is true then 'refit'? the boundary using a previous `bndfile`
+                - `bndfile`, `bnddir`
+            - if `fit_parameterised_boundary` is false, then we can do everything by hand 
+                - `ishape`, `ellip`, `tria`, `quad`, `mharm=1024`, `minor_r`, `r_geom`
+
+
+
+- Generating the widths (device independent)
+    - `'delta_min', 'delta_max', 'steps'`: for generating the widths 
+    - if `fixed_width > 0` then we set the variables `delta_vector=np.full(fixed_width)` and: 
+        - if `pedestal_model` is `EPED`, then `betap_ped_min < betap_ped_max` and `betap_ped_vector = np.linspace(betap_ped_min, betap_ped_max, steps)`
+        - else create a `ne_ped_vector = np.linspace(neped_min, neped_max, steps)` from `ne_ped_min/max` input variables 
+    - else:  `delta_vector = np.linspace(delta_min, delta_max, steps)`
+
+- Profile: core and pedestal profiles, (which takes previous device)
+- Equilbrium
+    - `elite_or_mishka`: which equilibrium to run (default=mishka)
+
+
+## Calculating Equilbrium for a given width
+
+
+## Executing HELENA 
+
+Helena outputs a file called `fort.20`, so we need to check that file for convergence critera and if it is converged, then run one final run!
+
+```{bash}
+#| echo: true
+#!/bin/bash
+
+
+```
+
+## 

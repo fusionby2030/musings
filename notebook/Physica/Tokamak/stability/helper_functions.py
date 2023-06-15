@@ -74,6 +74,11 @@ def get_numpy_arrays_from_local_data(shot_number: int, local_folder_path: 'str')
     
     return results, get_mp_names_saved_in_arrays(local_folder_path)
 
+def filter_by_time_window(time_array: np.ndarray, list_return_arrays: List[np.ndarray], t1: float, t2: float) -> List[np.ndarray]:
+    bool_window = np.logical_and(time_array > t1, time_array < t2)
+    return [arr[bool_window] for arr in list_return_arrays]
+
+
 from scipy.interpolate import interp1d
 REL_COLS = ['BTF', 'IpiFP', 'D_tot', 'PNBI_TOT', 'PICR_TOT','PECR_TOT', 'P_OH', 'k', 'delRoben', 'delRuntn', 'ahor', 'Rgeo', 'q95', 'Vol']
 def map_pulse_dict_to_numpy_arrays(pulse_dict: Dict[str, Dict[str, Union[np.ndarray, Dict[str, np.ndarray]]]], return_torch=False, device_name: str='AUG') -> List[np.ndarray]: 

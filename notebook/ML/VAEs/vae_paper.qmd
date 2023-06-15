@@ -1,92 +1,248 @@
 ---
-title: "Vae  Overview"
-
-execute: 
-  echo: false
-  warning: false
+title: "An overview of VAEs and their applications to fusion"
+author: "Adam Kit"
+format: beamer
 ---
 
-## Overview 
+## Fusion and the tokamak 
+
+There are many ways of achieving fusion, most promising is magnetically confining the plasma, e.g., with a tokamak. 
+
+:::: {.columns}
+
+::: {.column width="80%"}
+
+![Tokamak overview (EUROfusion)](./figures/tokamak_schematic.jpg){width=90%}
+:::
+
+::: {.column width="20%"}
+![USSR Stamp 1987 (wikipedia)](./figures/1987_CPA_5891.jpeg)
+:::
+
+::::
+
+## The plasma inside is confined, and best parameterized in terms of  flux surface coordinates
+:::: {.columns}
+
+::: {.column width="50%"}
+
+![](./figures/img_flux_surf.jpg)
+![](./figures/aug_people.jpg)
+:::
+
+::: {.column width="50%"}
+
+![](./figures/efit_recons.jpg){height=80%}
+:::
+
+::::
+
+## The future is big (literally) but we can't currently extrapolate (missing physics)
+
+![Size scaling of reactors](./figures/bau_size_comparison.jpg){height=40% fig-align="center"}
+![](./figures/lcfs_size_comparison.jpeg){height=50% fig-align="center"}
+
+## Overview of tokamak scales 
 
 Inside a magnetic confinement fusion device lives a dynamical system which evolves on many varying spatio-temporal scales. 
 
-#### Spatial Scales
-- Subatomic/Molecular level
+:::: {.columns}
+
+::: {.column width="50%"}
+
+**Spatial**
+
+- Molecular level ($<$ nm)
   - Plasma wall interaction 
-- Orbit radius 
-  - Collisions
-- Debye sphere
-  - Something 
-- Macro turbulence 
-- MHD instabilities 
+- gyrorbit radius ($\sim 0.1$ mm)
+  - Electron/ion collisions 
+- Turbulence (mm-m)
+- MHD instabilities (mm-m)
+:::
 
-#### Temporal scales 
+::: {.column width="50%"}
 
-- GHz
-  - Turbulence
-  - Power injection systems 
-- MHz 
-- kHz 
+**Temporal**
+
+- GHz 
+  - Electron/ion gyrofequencies (20-200)
+  - Power injection systems  
+- MHz and kHz
+  - **Diagnostic capability**
 - Hz
   - ELMs and other MHD instabilities 
+  - Heat exchange  (collisions)time for ions/electrons
+:::
+
+::::
 
 ## Motivation 
 
-Although we can possibly compute the Hamiltonian of the entire system, the resolution needed to run such a simulation at a reactor scale size (e.g., of grid size and temporal size) would likely require more power (computationally) than actually running a device of that size, additionally probably take decades to run. 
+- Can not reasonably compute Hamiltonian of system ($\sim 1.4 \times 10^{22}$ particles)
+- Solving phase space representations e.g., 6-D Vlasov with PIC codes, the resolution needed to run such a simulation at a reactor scale size would likely require more power (computationally) than actually running a device of that size.
+  - Grid size: electron/ion gyroradii 
+  - Time scale: electron/ion gyrofrequencies
 
-Therefore, we need fast(er), reduced models of the system. 
+![](./figures/Figure_integrated_modelling.pdf){height=50%}
 
-These I group into the following: 
+## Motivation (cont.)
+Therefore, we need fast(er), reduced models of the system that are: 
 
 1. Theory driven  
 2. **Experiment (data) driven**
 3. Theory-emperical hybrid 
 
-### Data driven approach 
+## Data driven approach to modeling the plasma state
 
-Typically we have some physics phenomena that we are trying to model. 
-Lets take a quantity of interest, the pedestal pressure. 
+![](./figures/33194_density.png){fig-align="center" width=60%}
 
-##### Observing the plasma state 
+We know our pheonemna we want to model, $\vec{x}$, should be some time evolving function parametermized by at least the machine control parameters, $\vec{c}$, and possibly some stochastic elements we do not have direct control over ($\vec{\kappa}$),  $$\vec{x} = f(\vec{c}, \vec{\kappa}, t) \Rightarrow f(\vec{z}, t)$$ where $z$ are some latent variables that are some unkown combination of controllable parameters and dynamic evolution of internal plasma state.
 
-high dimensional data, and lots of it! 
-Cartoon of HRTS/IDA data + equilibria 
+How to learn $\vec{z}$?. 
 
+## Enter bayes and its variational variations
 
-All this data, but at the end we have some quantity we want to model, $\vec{x}$. We know it should be some time evolving function parametermized by at least the machine control parameters, $\vec{c}$, and possibly some stochastic elements we do not have direct control over ($\vec{\kappa}$),  $$\vec{x} = f(\vec{c}, \vec{\kappa}, t) \RightArrow f(\vec{z}, t)$$, where $z$ are some latent variables that are some unkown combination of known (control) and unkown (not directly controlled, or unaccessible) variables that pertain to modeling $\vec{x}$.   
+From a probabilistic point of view, we want to approximate as closely as possible the following distribution: $$p(z | x) = \frac{p(x | z) p(z)}{p(x)}$$
 
-The trick is how to learn $\vec{z}$?. 
-## Enter bayes and variational bayes  
+The bottleneck in our case is the evidence, which takes into account **all the values possible** of $x$ for a given $z$: 
+$$p(x) = \int p(x|z)p(z)dz$$
 
-From a probabilistic point of view, we want to approximate as closely as possible the following distribution: $$p(z | x) = \frac{p(x | z) p(z)}{p(x)}$$.
+## Enter bayes and its variational variations
+From a probabilistic point of view, we want to approximate as closely as possible the following distribution: $$p(z | x) = \frac{p(x | z) p(z)}{p(x)}$$
 
 The bottleneck in our case is the evidence, which takes into account all the values possible from $z$: 
 $$p(x) = \int p(x|z)p(z)dz$$
 
 From a fusion perspective, in reactor-scale devices, we have very little chance this is in closed form, and if so, the time needed to compute is massive. 
 
-To mitigate this problem we can: 
-- Inverse sample when we know the inverse c.d.f. of the posterior to sample (we don't)
-- Rejection sample when we only know likelihood and prior (we don't)
-- Gibbs sample when we can compute easily conditioned probabilities (they aren't)
-- MCMC when we have **access to a quantity proportional to posterior density.**
+## Enter bayes and its variational variations
 
-For us, with big datasets of observations in a high dimensional space all of these are computationally infeasable. 
+Want: posterior $$p(z | x) = \frac{p(x | z) p(z)}{p(x)}$$
 
-But there Kingma and Welling suggest the **Variational Inference framework**. 
+Bottleneck: evidence $$p(x) = \int p(x|z)p(z)dz$$
+
+Bayesian people have been clever and proposed many solutions (e.g., MCMC), but for us, with big datasets of observations in a high dimensional space, most previous solutions are computationally infeasable. 
+
+But Kingma and Welling suggest the **Variational Inference framework**, where we will try to approximate the intractable posterior. 
 
 ## Variational infrenece
 
-We want to approximate the intractable posterior density, $p(z |x)$ (how do $z$ vary conditioned on observations). We consider our approximation as a family member of well known densities, and $z$ is what we have to optimize. 
-
-If we are picking a $z$ that describes our data, we would know it does so well if the marginal likelihood is high, i.e., maximizing $p(x |z)$ will help us to find optimial $z$. 
+We consider that there is a hidden variable, $z$ that could explain our data, $x$. We want to approximate the intractable posterior density, $p(z |x)$ (how do $z$ vary conditioned on observations). We consider our approximation as a family member of well known densities, and $z$ is what we have to optimize. 
 
 
+To do so, we introduce the following models: 
 
-Helpful links: 
 
-- https://gregorygundersen.com/blog/2018/04/29/reparameterization/
-- https://stats.stackexchange.com/questions/199605/how-does-the-reparameterization-trick-for-vaes-work-and-why-is-it-important/205336#205336
-- https://stats.stackexchange.com/questions/409995/why-is-random-sampling-a-non-differentiable-operation
-- https://www.youtube.com/watch?v=5bA6gwo36Cw
-- https://github.com/RonyAbecidan/VAE/blob/main/Report/Auto_Encoding_Variational_Bayes.pdf
+:::: {.columns}
+
+::: {.column width="50%"}
+**Recognition model (encoder)**
+$$q_\phi (z |x)$$
+an approximation for true posterior with model parameters $\phi$; i.e., given $x$, what is $z$? 
+
+:::
+
+::: {.column width="50%"}
+**Generative model (decoder)**
+$$p_\theta (x |z)$$
+with model parameters $\theta$, that given $z$ produces a distribution over possible coresponding $x$
+
+:::
+
+::::
+
+Intuitively, if the marginal liklihood, $p(x |z )$, is high, then we have likely chosen a good $z$ to describe $x$. So let's try to maximize the likelihood! 
+
+## Now we have an evidence lower bound over the marginal likelihood
+
+$$\mathcal{L}_\text{ELBO} = -\mathcal{D}_{KL} \left( q_\phi (z | x_i) || p_\theta (z) \right) + \mathbb{E}_{q_\phi (z | x_i)} \left( \log (p_\theta (x_i |z))\right)$$
+
+We want to differentiate and optimize (maximize) $\mathcal{L}$ w.r.t the variational,$\phi$, and generative, $\theta$, parameters. 
+
+$\nabla_{\theta, \phi} \mathcal{L}_\text{ELBO}$ is the gradient w.r.t $\phi$ over the expectation w.r.t $\phi$!.
+This in it of itself is not differentiable...
+
+Kingma introduces the noise variable, $\epsilon$, and 'differentiably transforms' $q_\phi (z|x)$ to get a fully diffferentiable set of opearations, which we can use our favourite gradient-based optimization technique to maximize.
+
+## Implementation 
+\begin{align*}
+\boldsymbol{\mu}_x, \boldsymbol{\sigma}_x &= M(\textbf{x}), \Sigma(\textbf{x}) && \text{Push \textbf{x} through encoder}
+\\ \\
+\boldsymbol{\epsilon} &\sim \mathcal{N}(0, 1) && \text{Sample noise}
+\\ \\
+\textbf{z} &= \boldsymbol{\epsilon} \boldsymbol{\sigma}_x + \boldsymbol{\mu}_x  && \text{Reparameterize}
+\\ \\
+\textbf{x}_r  & = p_{\boldsymbol{\theta}}(\textbf{x} \mid \textbf{z}) && \text{Push \textbf{z} through decoder}
+\\ \\
+\text{recon. loss} &= \text{MSE}(\textbf{x}, \textbf{x}_r) && \text{Compute reconstruction loss}
+\\ \\
+\text{var. loss} &= -\text{KL}[\mathcal{N}(\boldsymbol{\mu}_x, \boldsymbol{\sigma}_x) \lVert \mathcal{N}(0, I)] && \text{Compute variational loss}
+\\ \\
+\text{L} &= \text{recon. loss} + \text{var. loss} && \text{Combine losses}
+\end{align*}
+
+## Examples in fusion (1): Dimensionality reduction for disruption prediction 
+
+
+Idea is to map the high dimensional signals (7) to lower dimension (2) which could be passed to a controler. 
+
+:::: {.columns}
+
+::: {.column width="30%"}
+![](./figures/vae_wei_disruption.png){height=100%}
+:::
+
+::: {.column width="30%"}
+![](./figures/wei_signal.png){height=65%}
+
+:::
+
+::::
+
+## Examples in fusion (1): Dimensionality reduction for disruption prediction 
+![](./figures/insitu_control.png){height=50%}
+'After training the VAE model, all data were mapped to the latent space by their mean coordinates using the encoder network and then averaged into a two-dimensional grid by calculating the mean andstandard deviation of each of the parameters of the data points within each grid box. The disruptivity score of each sample was assigned bycomparing the time-to-disruption to a 1 ms warning time window'
+
+## Examples in fusion (2) Mapping machine parameters to electron profiles
+
+Here we (i) got fancy and modified the ELBO based on _Ilse, et. al., DIVA ICMLR 2020_. The motivation is that we want to find a mapping of machine control parameters to our $z$. 
+
+![](./figures/DIVA_ARCH.svg.png)
+
+
+Our latent space is a bit bigger (8D), but we can take slices of the learned $z$ to find regions of $z$ that correspond to useful plasma characteristics and corresponding machine parameters therewith. 
+
+## Examples in fusion (2) Mapping machine parameters to electron profiles: general generative use case
+
+![](./figures/DIVA_output.png)
+
+## Examples in fusion (2) Mapping machine parameters to electron profiles: conditional generative use case
+
+
+![](./figures/DIVA_CON_GEN.png)
+
+![](./figures/current_sweep.png){height=50%}
+
+## Examples in fusion (3) Learning a time evoliving $z$
+
+The previous examples considered a steady state plasma, but in reality it is dynamic: 
+
+![](./figures/need-for-time-dependence-output-1.png)
+
+## Examples in fusion (3) Learning a time evoliving $z$
+
+![](./figures/forward_model_enc_dec_profs_arch.png)
+
+![](./figures/synopsis_posterior_pulse.png){height=80%}
+
+## Examples in fusion (3) Learning a time evoliving $z$, addition linear constraint to $z$ w.r.t power needed to get to H-mode
+
+![](./figures/lh_predictor.png)
+
+## Future work: Diffusion VAE's 
+
+![](./figures/diffusion_vaes.png){height=60%}
+
+They change the reparameterization mapping to approximate it as a random walk, which they can then project onto an arbitrary Riemannian manifold. 
+
+The benifit is that one can capture topological information of the data, not possible in basic VAE approach. 

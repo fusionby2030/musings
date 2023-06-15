@@ -1,0 +1,196 @@
+---
+title: "General notes on the ICDDPS-4 contribution"
+
+execute: 
+  echo: false
+  warning: false
+---
+
+## Dataset 
+
+- 6456 Pulses from ASDEX-Upgrade 
+    - From 'Useful discharges' between 30002 to 41570
+    - 70\% H-mode, 30\% L-mode
+    - 70\% Deterium only, 23\% with impurities (of which 50\% are N2 seeded)
+    - 10\% disrupt (662 labeled) 
+
+- Filtering 
+    - Toroidal field < 0.0
+    - Plasma current > 0.0
+
+```{python}
+import pandas as pd 
+from IPython.display import Markdown
+import os 
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt 
+
+if os.getenv('PLOTSTYLE') is not None: 
+    plt.style.use(os.getenv('PLOTSTYLE'))
+
+RED = "#dd3015"
+GREEN = "#489A8C"
+DARK = "#1C2C22"
+GOLD = "#F87D16"
+WHITE = "#FFFFFF"
+BLUE = "#2E6C96"
+mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=[RED, GREEN, DARK, GOLD, WHITE, BLUE]) 
+from helper_functions import get_allas_connection, get_pulse_dict
+conn = get_allas_connection()
+
+pulses_df = pd.read_csv('./journal-all-raw-aug-pulses.csv')
+```
+
+
+```{python}
+
+all_pulses = conn.get_container('AUG_PULSES')[1]
+for info in all_pulses: 
+    shot_number = info['name']
+    break 
+shot_number = str(pulses_df['shotno'].loc[0])
+shot_number  = str(37738)
+example_pulse = get_pulse_dict(shot_number, conn)
+```
+
+
+We have *observations* at a given time, $o_t$, that we would like to learn a *representation* of, $z_t$, from which we want to predict the next representation, $z_{t+1}$, given *actions* at the time step, $a_t$. 
+
+## Observations (electron profiles)
+
+Electron kinetic (density & temperature)  profiles from IDA  [CITE RAINER]. 
+
+- Spatial Resolution: 200
+- Temporal resolution: 1ms 
+
+## Actions (machine parameters)
+
+- A majority of these are quite static during a pulse. 
+- We have the option to get the 
+```{python}
+
+
+mp_dict = example_pulse['machine_parameters']
+num_subplots = len(mp_dict)# .keys()
+num_cols = 3
+num_rows = int(np.ceil(num_subplots / num_cols))
+fig, axs = plt.subplots(num_rows, num_cols, figsize=(12, 8), sharex=True)
+
+for i, key in enumerate(mp_dict.keys()): 
+    row = i // num_cols 
+    col = i % num_cols 
+    ax = axs[row, col]
+    ax.plot(mp_dict[key]['time'], mp_dict[key]['data'])
+    data_len = len(mp_dict[key]['data'])
+    # print(np.median(mp_dict[key]['data']), mp_dict[key]['data'][data_len // 2])
+    ax.set_title(key, y=0.5)
+
+# Remove unused subplots
+for i in range(num_subplots, num_cols*num_rows):
+    row = i // num_cols
+    col = i % num_cols
+    fig.delaxes(axs[row, col])
+
+# Adjust spacing between subplots
+# fig.tight_layout()
+
+# Show plot
+plt.show()
+
+```
+
+#### Heating 
+
+An overview of the heating given in @Streibl2017.
+
+- NBI can be separated into 8 different components depending on which beam/PINI is being used. 
+    - [General Details](https://www.aug.ipp.mpg.de/foswiki/bin/view/ITED/NiAU), [Geometry](https://www.aug.ipp.mpg.de/foswiki/bin/view/ITED/NiauGeometry)
+    - Corresponding journal keys: `'nbi{k}l', 'nbi{k}sp', 'nbi{k}g', 'nbi{k}b', 'nbi{k}e'` where `k` can range between 1-8. 
+        - l: power 
+        - sp: voltage 
+        - g: gas 
+        - b: start 
+        - e: end 
+- ECRH and ICRH can be separated into 4 different sources 
+    - Corresponding journal keys: (ecrh/icrh) `'icrh{k}l', 'icrh{k}f', 'icrh{k}m', 'icrh{k}b', 'icrh{k}e'` where `k` can range between 1-4. 
+        - l: power 
+        - f: frequency 
+        - m: mode 
+        - b: start 
+        - e : end 
+
+#### Fuelling 
+
+- Gas can come in 4 different directions from 22 different valves (toroidally displaced) [see here for more details](https://www.aug.ipp.mpg.de/aug/local/aug_only/vacuum_vessel/eng/gasinlet.html)
+
+
+#### Impurities 
+
+- Species and time of impurity event(?)
+
+
+#### Extras TBD 
+
+- Pellets
+- Last date of coating 
+
+```{python}
+
+['Unnamed: 0', 'shotno', 'program', 'clearance', 'datum', 'time', 'leader', 'konf_il', 'konf_al', 'konf_snu', 'konf_sno', 'konf_dn', 'typ', 'useful', 'b_hmod', 'b_lmod', 'b_imprh', 'b_itb', 'b_blim', 'b_dlim', 'b_disb', 'b_disr', 'b_dise', 'b_vdeo', 'b_vdeu', 'b_nobd', 'b_res', 'b_fail', 'b_stable', 'b_sweep', 'b_cdh', 'b_run', 'vessel', 'coat', 'coatdate', 'proposal', 'yag', 'lagereg', 'lagecom1', 'lagecom2', 'formreg', 'formcom1', 'formcom2', 'remarks', 'flatb', 'flate', 'flatm', 'ip', 'ne', 'nediag', 'bt', 'q95', 'kappa', 'delrob', 'delrunt', 'disr', 'killergas', 'impspez', 'imptime', 'neutr', 'kryop', 'glowtime', 'ioh', 'roh', 'gas_h', 'gas_d', 'gas_he', 'gas_ne', 'gas_ar', 'gas_n2', 'gas_kr', 'gas_xe', 'gas_cd4', 'gas_other', 'valve_1', 'valve_2', 'valve_3', 'valve_4', 'valve_5', 'valve_6', 'valve_7', 'valve_8', 'valve_9', 'valve_10', 'valve_11', 'valve_12', 'valve_13', 'valve_14', 'valve_15', 'valve_16', 'valve_17', 'valve_18', 'valve_19', 'valve_20', 'valve_21', 'valve_22', 'erstfh', 'erstfb', 'erstfg', 'gasvalv', 'nbi1l', 'nbi1sp', 'nbi1g', 'nbi1b', 'nbi1e', 'nbi2l', 'nbi2sp', 'nbi2g', 'nbi2b', 'nbi2e', 'nbi3l', 'nbi3sp', 'nbi3g', 'nbi3b', 'nbi3e', 'nbi4l', 'nbi4sp', 'nbi4g', 'nbi4b', 'nbi4e', 'nbi5l', 'nbi5sp', 'nbi5g', 'nbi5b', 'nbi5e', 'nbi6l', 'nbi6sp', 'nbi6g', 'nbi6b', 'nbi6e', 'nbi7l', 'nbi7sp', 'nbi7g', 'nbi7b', 'nbi7e', 'nbi8l', 'nbi8sp', 'nbi8g', 'nbi8b', 'nbi8e', 'ecrh1l', 'ecrh1f', 'e1m', 'ecrh1b', 'ecrh1e', 'ecrh2l', 'ecrh2f', 'e2m', 'ecrh2b', 'ecrh2e', 'ecrh3l', 'ecrh3f', 'e3m', 'ecrh3b', 'ecrh3e', 'ecrh4l', 'ecrh4f', 'e4m', 'ecrh4b', 'ecrh4e', 'ecrh5l', 'ecrh5f', 'e5m', 'ecrh5b', 'ecrh5e', 'ecrh6l', 'ecrh6f', 'e6m', 'ecrh6b', 'ecrh6e', 'ecrh7l', 'ecrh7f', 'e7m', 'ecrh7b', 'ecrh7e', 'ecrh8l', 'ecrh8f', 'e8m', 'ecrh8b', 'ecrh8e', 'icrh1l', 'icrh1f', 'i1m', 'icrh1b', 'icrh1e', 'icrh2l', 'icrh2f', 'i2m', 'icrh2b', 'icrh2e', 'icrh3l', 'icrh3f', 'i3m', 'icrh3b', 'icrh3e', 'icrh4l', 'icrh4f', 'i4m', 'icrh4b', 'icrh4e', 'nbi4m', 'icrh4m', 'ecrh4m', 'nbb1b', 'nbb1e', 'pheattot', 'status', 'notice', 'upddate', 'cryoreg', 'programdir', 'crossval', 'crosstyp', 'recipe', 'saddlecr', 'saddleip', 'saddleci']
+
+
+print(len(pulses_df))
+subset = pulses_df[(pulses_df['bt'] < 0.0) & (pulses_df['ip'] > 0.0)]
+print(len(subset))
+pos = "b'HMOD'"
+pulses_df['b_hmod'] = np.where(pulses_df['b_hmod'] == pos, 'HMOD', 0)
+pos = "b'LMOD'"
+pulses_df['b_lmod'] = np.where(pulses_df['b_lmod'] == pos, 'LMOD', 0)
+print(subset.loc[500]['shotno'])
+print(subset.loc[500][['impspez', 'imptime']])
+for i in range(1, 9): 
+    print(subset.loc[500][[f'nbi{i}l', f'nbi{i}sp', f'nbi{i}g', f'nbi{i}b', f'nbi{i}e', ]].T)
+
+print(subset.loc[500][[f'valve_{k}' for k in range(1, 23)]])
+# Markdown(pulses_df[['b_hmod', 'b_lmod']].value_counts().to_markdown())
+# - 4502 H-mode, 1120 L-mode, 298 Both, 536 Unlabeled
+# Markdown(pulses_df[['b_disr']].value_counts().to_markdown())
+
+# Markdown(pulses_df[['gas_ne', 'gas_ar', 'gas_n2', 'gas_kr', 'gas_xe', 'gas_cd4', 'gas_other']].value_counts().to_markdown())
+# - 4643 D only, 1486 with impurities (851 D + N2, 131 D + Argon + N2, ...), 150 H + D, 126 D + Helium, ... 
+
+
+``` 
+
+```{python}
+fig, axs = plt.subplots(figsize=(5, 5))
+
+plot_df = pulses_df[pulses_df['bt'] != 0.0]
+plt.scatter(plot_df['bt'], plot_df['ip']*1e-6, edgecolor=(0, 0, 0))
+plt.scatter(subset['bt'], subset['ip']*1e-6, edgecolor=(0, 0, 0))
+plt.xlim(-3.5, 3.5)
+plt.ylim(-1.5, 1.5)
+plt.xlabel('$B_T$ [T]')
+plt.ylabel('$I_P$ [MA]')
+
+axins = axs.inset_axes([0.2, 0.1, 0.47, 0.47])
+axins.scatter(subset['bt'], subset['ip']*1e-6,  edgecolor=(0, 0, 0))
+x1, x2 = (-3.3, -1.3)
+y1, y2 = 0.2, 1.4
+axins.set_xlim(x1, x2)
+axins.set_ylim(y1, y2)
+
+axs.indicate_inset_zoom(axins, edgecolor="black")
+plt.show()
+``` 
+
+
+```{python}
+
+# 
+
+# print(pulse_dict['journal'])
+
+
+```
