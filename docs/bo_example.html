@@ -209,7 +209,7 @@ div.csl-indent {
   <li><a href="#framing-model-validation-as-an-optimization-problem" id="toc-framing-model-validation-as-an-optimization-problem" class="nav-link" data-scroll-target="#framing-model-validation-as-an-optimization-problem"><span class="header-section-number">2.2</span> Framing model validation as an optimization problem</a></li>
   <li><a href="#surrogate-model-of-the-discrepency-between-model-and-experiment-r" id="toc-surrogate-model-of-the-discrepency-between-model-and-experiment-r" class="nav-link" data-scroll-target="#surrogate-model-of-the-discrepency-between-model-and-experiment-r"><span class="header-section-number">2.3</span> Surrogate model of the discrepency between model and experiment (<span class="math inline">\(r\)</span>)</a>
   <ul class="collapse">
-  <li><a href="#approach-1-point-wise-estimation-via-maximizng-the-log-likelihood" id="toc-approach-1-point-wise-estimation-via-maximizng-the-log-likelihood" class="nav-link" data-scroll-target="#approach-1-point-wise-estimation-via-maximizng-the-log-likelihood">Approach 1: Point-wise estimation via maximizng the log-likelihood</a></li>
+  <li><a href="#approach-1-point-wise-estimation-via-maximizing-the-log-likelihood" id="toc-approach-1-point-wise-estimation-via-maximizing-the-log-likelihood" class="nav-link" data-scroll-target="#approach-1-point-wise-estimation-via-maximizing-the-log-likelihood">Approach 1: Point-wise estimation via maximizing the log-likelihood</a></li>
   <li><a href="#approach-2-marginalizing-the-hyperparameters-out" id="toc-approach-2-marginalizing-the-hyperparameters-out" class="nav-link" data-scroll-target="#approach-2-marginalizing-the-hyperparameters-out">Approach 2: Marginalizing the hyperparameters out</a></li>
   </ul></li>
   <li><a href="#aquiring-new-points-from-the-surrogate" id="toc-aquiring-new-points-from-the-surrogate" class="nav-link" data-scroll-target="#aquiring-new-points-from-the-surrogate"><span class="header-section-number">2.4</span> Aquiring new points from the surrogate</a>
@@ -219,7 +219,8 @@ div.csl-indent {
   </ul></li>
   <li><a href="#the-full-bo-algorithm" id="toc-the-full-bo-algorithm" class="nav-link" data-scroll-target="#the-full-bo-algorithm"><span class="header-section-number">2.5</span> The full BO algorithm</a></li>
   <li><a href="#obtaining-uncertainties" id="toc-obtaining-uncertainties" class="nav-link" data-scroll-target="#obtaining-uncertainties"><span class="header-section-number">2.6</span> Obtaining uncertainties</a></li>
-  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">2.7</span> References</a></li>
+  <li><a href="#scaling-to-multiple-experiments" id="toc-scaling-to-multiple-experiments" class="nav-link" data-scroll-target="#scaling-to-multiple-experiments"><span class="header-section-number">2.7</span> Scaling to multiple experiments</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">2.8</span> References</a></li>
   </ul>
 <div class="toc-actions"><div><i class="bi bi-github"></i></div><div class="action-links"><p><a href="https://github.com/fusionby2030/musings/issues/new" class="toc-action">Report an issue</a></p></div></div></nav>
     </div>
@@ -243,8 +244,8 @@ div.csl-indent {
 
 </header>
 
-<p>Given some model <span class="math inline">\(f(x, \theta)&nbsp;\rightarrow y\)</span>, which takes inputs <span class="math inline">\(x\)</span> and free parameters <span class="math inline">\(\theta\)</span>, and maps them to <span class="math inline">\(y \in \mathbb{R}^d\)</span>.</p>
-<p>The validation exercise is the following: given an observed measurement or pheonemna <span class="math inline">\(\hat{y}\)</span>, we aim to find <span class="math inline">\(\theta\)</span> such that <span class="math inline">\(f(x, \theta) \sim \hat{y}\)</span>. Once we find an optimal <span class="math inline">\(\theta\)</span>, our secondary goal is to assess i) how certain we are that <span class="math inline">\(\theta\)</span> is the optimal, and ii) how do changes in <span class="math inline">\(\theta\)</span> propagate through our model <span class="citation" data-cites="Wu2018">(<a href="#ref-Wu2018" role="doc-biblioref">Wu et al. 2018</a>)</span>.</p>
+<p>Given some model <span class="math inline">\(f(x, \theta)&nbsp;\rightarrow y\)</span>, which takes inputs <span class="math inline">\(x\)</span> and free parameters <span class="math inline">\(\theta\)</span>, and maps them to <span class="math inline">\(y \in \mathbb{R}^d\)</span>, the validation exercise is the following:</p>
+<p>given an observed measurement or pheonemna <span class="math inline">\(\hat{y}\)</span>, we aim to find <span class="math inline">\(\theta\)</span> such that <span class="math inline">\(f(x, \theta) \sim \hat{y}\)</span>. Once we find an optimal <span class="math inline">\(\theta\)</span>, our secondary goal is to assess i) how certain we are that <span class="math inline">\(\theta\)</span> is the optimal, and ii) how do changes in <span class="math inline">\(\theta\)</span> propagate through our model <span class="citation" data-cites="Wu2018">(<a href="#ref-Wu2018" role="doc-biblioref">Wu et al. 2018</a>)</span>.</p>
 <section id="example-model" class="level2" data-number="2.1">
 <h2 data-number="2.1" class="anchored" data-anchor-id="example-model"><span class="header-section-number">2.1</span> Example Model</h2>
 <p>Let’s consider the model <span class="math display">\[f(x, \alpha, \beta) = \alpha\sin(x) + \beta e^{-x}\]</span></p>
@@ -326,22 +327,27 @@ div.csl-indent {
 <span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>cm <span class="op">=</span> plt.get_cmap(<span class="st">'plasma'</span>)</span>
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>scmap <span class="op">=</span> plt.cm.ScalarMappable(col.Normalize(vmin<span class="op">=</span><span class="fl">0.0</span>, vmax<span class="op">=</span><span class="bu">max</span>(discs)), cm)</span>
 <span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>colors <span class="op">=</span> scmap.to_rgba(discs)</span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>fig, axs <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">12</span>, <span class="dv">4</span>))</span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> c, pair <span class="kw">in</span> <span class="bu">zip</span>(colors, grid): </span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  axs[<span class="dv">0</span>].plot(x_range, model_f(x_range, <span class="op">*</span>pair), c<span class="op">=</span>c)</span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">0</span>].scatter(x_range, experimental_result, label<span class="op">=</span><span class="st">'Experiment: $\hat</span><span class="sc">{y}</span><span class="st">$'</span>, color<span class="op">=</span><span class="st">'black'</span>)</span>
-<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">1</span>].scatter(grid[:, <span class="dv">0</span>], grid[:, <span class="dv">1</span>], c<span class="op">=</span>discs, vmin<span class="op">=</span><span class="dv">0</span>, vmax<span class="op">=</span><span class="bu">max</span>(discs), cmap<span class="op">=</span>cm)</span>
-<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">1</span>].scatter(alpha_target, beta_target, marker<span class="op">=</span><span class="st">'*'</span>, s<span class="op">=</span><span class="dv">50</span>, color<span class="op">=</span>scmap.to_rgba(disc_func(target_model, experimental_result)))</span>
-<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">1</span>].set_xlabel(<span class="vs">r'$\alpha$'</span>)</span>
-<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">1</span>].set_ylabel(<span class="vs">r'$\beta$'</span>)</span>
-<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">0</span>].set_title(<span class="st">'Model outputs'</span>)</span>
-<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">1</span>].set_title(<span class="vs">r'Discrepency Function against various $\theta$'</span>)</span>
-<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>fig.colorbar(scmap, ax <span class="op">=</span> axs[<span class="dv">1</span>], label<span class="op">=</span><span class="st">'r'</span>)</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>fig, axs <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">4</span>))</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> c, pair <span class="kw">in</span> <span class="bu">zip</span>(colors, grid): </span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  axs[<span class="dv">0</span>].plot(x_range, model_f(x_range, <span class="op">*</span>pair), c<span class="op">=</span>c)</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">0</span>].scatter(x_range, experimental_result, label<span class="op">=</span><span class="st">'Experiment: $\hat</span><span class="sc">{y}</span><span class="st">$'</span>, color<span class="op">=</span><span class="st">'black'</span>)</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">1</span>].scatter(grid[:, <span class="dv">0</span>], grid[:, <span class="dv">1</span>], c<span class="op">=</span>discs, vmin<span class="op">=</span><span class="dv">0</span>, vmax<span class="op">=</span><span class="bu">max</span>(discs), cmap<span class="op">=</span>cm)</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">1</span>].scatter(alpha_target, beta_target, marker<span class="op">=</span><span class="st">'*'</span>, s<span class="op">=</span><span class="dv">200</span>, color<span class="op">=</span><span class="st">'Green'</span>)</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">1</span>].set_xlabel(<span class="vs">r'$\alpha$'</span>)</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">1</span>].set_ylabel(<span class="vs">r'$\beta$'</span>)</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">0</span>].set_title(<span class="st">'Model outputs'</span>)</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>axs[<span class="dv">1</span>].set_title(<span class="vs">r'Discrepency Function against various $\theta$'</span>)</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>fig.colorbar(scmap, ax <span class="op">=</span> axs[<span class="dv">1</span>], label<span class="op">=</span><span class="st">'r'</span>)</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>fig.subplots_adjust(wspace<span class="op">=</span><span class="fl">0.3</span>)</span>
 <span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-display">
-<p><img src="bo_example_files/figure-html/cell-4-output-1.png" width="948" height="377"></p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="bo_example_files/figure-html/cell-4-output-1.png" width="672" height="377" class="figure-img"></p>
+<figcaption class="figure-caption">Model outputs from draws of <span class="math inline">\(\alpha, \beta\)</span> compared to the experiment we want to model. The draws are coloured by their discrepency with the experiment (colorbar on the right plot), The draws of <span class="math inline">\(\alpha\)</span> (x-axis), <span class="math inline">\(\beta\)</span> (y-axis) coloured by the discrepency value (L2 norm) of the model output with those values.</figcaption>
+</figure>
+</div>
 </div>
 </div>
 <p>In real world examples, we do not have direct (analytical) access to <span class="math inline">\(r\)</span>. Therefore, we want to make an approximate of <span class="math inline">\(r\)</span>.</p>
@@ -351,8 +357,8 @@ div.csl-indent {
 <p><span class="math inline">\(r\)</span> can be approximated by any number of functions. Therefore, a Gaussian Process Regression (GPR) is a good start. A good overview of GPRs can be found in <span class="citation" data-cites="RasmussenW06">Rasmussen and Williams (<a href="#ref-RasmussenW06" role="doc-biblioref">2006</a>)</span> and <span class="citation" data-cites="Rasmussen1995">Williams and Rasmussen (<a href="#ref-Rasmussen1995" role="doc-biblioref">1995</a>)</span>. The points relevant to this discusison are that: i) GPR defines a family (distribution) of functions, normally Guassian, and ii) like any model, a GPR has hyperparameters, typically <span class="math inline">\(D + 3\)</span> parameters, for <span class="math inline">\(D\)</span> dimensionality of the data you want to fit (in this case 2). The traditional GPR thus learns a model that outputs a distribution: <span class="math display">\[\hat{r} \sim \mathcal{N}(\mu (\theta, \text{hyper}), \sigma (\theta, \text{hyper}))\]</span></p>
 <p>where <span class="math inline">\(\mu\)</span> and <span class="math inline">\(\sigma\)</span> are deterimed by what are called the kernel and mean function of the GPR. Additionally, the kernel and mean function have hyperparameters, <span class="math inline">\(\text{hyper}\)</span> that we must fit. Another key point is that the kernel and mean function are differentiable functions.</p>
 <p>We are only as good as our surrogate model. To find a good surrogate model, we must find the proper hyperparameters of the kernel and mean function of the GPR.</p>
-<section id="approach-1-point-wise-estimation-via-maximizng-the-log-likelihood" class="level3 unnumbered">
-<h3 class="unnumbered anchored" data-anchor-id="approach-1-point-wise-estimation-via-maximizng-the-log-likelihood">Approach 1: Point-wise estimation via maximizng the log-likelihood</h3>
+<section id="approach-1-point-wise-estimation-via-maximizing-the-log-likelihood" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="approach-1-point-wise-estimation-via-maximizing-the-log-likelihood">Approach 1: Point-wise estimation via maximizing the log-likelihood</h3>
 <p>In this example, we will use a Gaussian likelihood GPR, i.e., we say that the probability density of observing a point <span class="math inline">\(R = r(\theta)\)</span> that is generated by a Gaussian distribution is given by:</p>
 <p><span class="math display">\[P(R, \mu, \sigma) = \frac{1}{\sigma \sqrt{2\pi}} \exp \left( -\frac{(R - \mu)^2}{2\sigma^2}\right)\]</span> where, one again, <span class="math inline">\(\mu\)</span> and <span class="math inline">\(\sigma\)</span> are outputs of our GPR. Notice this probability distribution has a maximum if the mean output of our GPR matches that of the point we observe, i.e., <span class="math inline">\(\mu = R\)</span>. If we have mutliple points to fit, <span class="math inline">\(\vec{R} = (r(\theta_1), r(\theta_2), r(\theta_3), \dots, R_i)\)</span>, then the total joint probability distribution of observing all the points is given by the product of their likelihood:</p>
 <p><span class="math display">\[P(\vec{R}, \mu, \sigma) = \prod_i \frac{1}{\sigma\sqrt{2\pi}} \exp \left( -\frac{(R_i - \mu)^2}{2\sigma^2}\right)\]</span></p>
@@ -510,7 +516,7 @@ div.csl-indent {
 <span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>      model_output <span class="op">=</span> model_f_torch(x_range_test, test_x[:, <span class="dv">0</span>].unsqueeze(<span class="op">-</span><span class="dv">1</span>), test_x[:, <span class="dv">1</span>].unsqueeze(<span class="op">-</span><span class="dv">1</span>))</span>
 <span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>      discrepency_output <span class="op">=</span> disc_fun_torch(experimental_result_torch.repeat((model_output.shape[<span class="dv">0</span>], <span class="dv">1</span>)), model_output).mean(<span class="op">-</span><span class="dv">1</span>) <span class="op">/</span> x_range_test.shape[<span class="op">-</span><span class="dv">1</span>]</span>
 <span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  fig, ax <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>  fig, ax <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="dv">4</span>))</span>
 <span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>  extent <span class="op">=</span> (alphas.<span class="bu">min</span>(), alphas.<span class="bu">max</span>(), betas.<span class="bu">min</span>(), betas.<span class="bu">max</span>())</span>
 <span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>  ax[<span class="dv">1</span>].imshow(np.flip(mean.detach().numpy().reshape(n1, n2), <span class="dv">0</span>), extent<span class="op">=</span>extent, cmap<span class="op">=</span>plt.get_cmap(<span class="st">'plasma'</span>))</span>
 <span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>  </span>
@@ -558,12 +564,12 @@ div.csl-indent {
 <span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a>plot_evaluation(model_mle, likelihood_mle)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>Iter 300/300 - Loss: 2.487   lengthscales: 8.822, 3.463   noise: 0.000  mean length: 3.370  outputscale: 4.127</code></pre>
+<pre><code>Iter 300/300 - Loss: 2.484   lengthscales: 8.825, 3.459   noise: 0.000  mean length: 3.368  outputscale: 4.126</code></pre>
 </div>
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="bo_example_files/figure-html/cell-7-output-2.png" width="848" height="418" class="figure-img"></p>
+<p><img src="bo_example_files/figure-html/cell-7-output-2.png" width="693" height="350" class="figure-img"></p>
 <figcaption class="figure-caption">MLE for all hyperparameters of GPR results in decent approximation.</figcaption>
 </figure>
 </div>
@@ -576,11 +582,10 @@ div.csl-indent {
 <p>According to Bayesian formalisim <a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>, we should start with a prior distribution over the hyperparameters, <span class="math inline">\(P(\text{hyper})\)</span>, which is in turn modified using training data <span class="math inline">\(\theta\)</span> to produce a posterior <span class="math inline">\(P(\text{hyper}|\theta)\)</span>. To make predictions, we should then integrate over the posterior. With the above example, the predicted mean output of the GPR is <span class="math inline">\(\hat{\mu}(\theta_i)\)</span> for a given input <span class="math inline">\(\theta_i\)</span> is:</p>
 <p><span class="math display">\[\hat{\mu} (\theta_i) = \int \mu_{\text{hyper}} (\theta_i) P(\text{hyper}|\theta) d\text{hyper}\]</span> where <span class="math inline">\(\mu_{\text{hyper}}\)</span> is the preidcted mean for a particular value of <span class="math inline">\(\text{hyper}\)</span>.</p>
 <p>In this simple case, this is actually analytically feasable, but with fusion models, typically not. Therefore, we can apply MCMC and its friends. So we perscribe priors distributions over <span class="math inline">\(P(\text{hyper})\)</span> and use MCMC to give us samples from the posterior.</p>
-<p>More details on this method are found at the bottom of the page, but for now I just show the results of MCMC integration with NUTS.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="./figures/MCMC_CHAINS_EXAMPLE.png" class="img-fluid figure-img"></p>
-<figcaption class="figure-caption">Example MCMC Chains from integratin</figcaption>
+<p><img src="./figures/MCMC_CHAINS_EXAMPLE_crop.png" class="img-fluid figure-img" style="width:100.0%"></p>
+<figcaption class="figure-caption">Example MCMC Chains over the GPR hyperparameters</figcaption>
 </figure>
 </div>
 <p>We can then take draws from the above posterior distributions.</p>
@@ -643,7 +648,7 @@ div.csl-indent {
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="./figures/MCMC_POSTERIOR_REALIZATION.png" class="img-fluid figure-img"></p>
-<figcaption class="figure-caption">Example draws from posterior realization</figcaption>
+<figcaption class="figure-caption">Example draws from posterior realization, here the red dot is the analyitical minimum of the posterior draw. Green start is the actual minimum.</figcaption>
 </figure>
 </div>
 <p>Now that we have a fitted surrogate model, we would like a way to query it to obtain new points (<span class="math inline">\(\alpha, \beta\)</span>), that hopefully better fit the experimental data with our model.</p>
@@ -674,7 +679,7 @@ div.csl-indent {
 <span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>plot_evaluation(model_mle, likelihood_mle, candidate)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-display">
-<p><img src="bo_example_files/figure-html/cell-9-output-1.png" width="848" height="418"></p>
+<p><img src="bo_example_files/figure-html/cell-9-output-1.png" width="693" height="350"></p>
 </div>
 </div>
 <p>We can see already that the MLE optimized model gives a very good first guess on where to sample from next!</p>
@@ -719,16 +724,24 @@ div.csl-indent {
 <span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>plt.plot(x_range, model_f(x_range, alpha_found, beta_found), label<span class="op">=</span><span class="vs">r'BO Optimum $\theta$; $\alpha$=</span><span class="sc">{alpha:.4}</span><span class="vs">; $\beta$=</span><span class="sc">{beta:.4}</span><span class="vs">'</span>.<span class="bu">format</span>(alpha<span class="op">=</span>alpha_found, beta<span class="op">=</span>beta_found), color<span class="op">=</span><span class="st">'red'</span>)</span>
 <span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>plt.legend()</span>
 <span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>plt.ylim(<span class="op">-</span><span class="dv">10</span>, <span class="dv">10</span>)</span>
-<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">'Result of coverged BO trial'</span>)</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="vs">r'$f(x, \alpha, \beta)$'</span>)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">'x'</span>)</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-display">
-<p><img src="bo_example_files/figure-html/cell-10-output-1.png" width="590" height="416"></p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="bo_example_files/figure-html/cell-10-output-1.png" width="610" height="449" class="figure-img"></p>
+<figcaption class="figure-caption">The model output for the given (MLE) BO output after 30 iterations.</figcaption>
+</figure>
+</div>
 </div>
 </div>
 </section>
 <section id="obtaining-uncertainties" class="level2" data-number="2.6">
 <h2 data-number="2.6" class="anchored" data-anchor-id="obtaining-uncertainties"><span class="header-section-number">2.6</span> Obtaining uncertainties</h2>
-<p>We can recover the optimal <span class="math inline">\(\theta\)</span> determined by the BO algorithm, as well as our uncertainty regarding it. This is our <em>forward</em> uncertainty. To do this, we take the fitted model (either by MLE or margnilzation over hyperparameters), and perform MCMC integration over the posterior, w.r.t input parameters, i.e., we sample <span class="math inline">\(\theta\)</span> around where the model thinks the discrepency is close to 0.0.</p>
+<p>We can recover the optimal <span class="math inline">\(\theta\)</span> determined by the BO algorithm, as well as our uncertainty regarding it. This is our <em>forward</em> uncertainty. To do this, we take the fitted model (either by MLE or margnilzation over hyperparameters), and perform MCMC integration over the posterior, w.r.t input parameters, i.e., we sample <span class="math inline">\(\theta\)</span> around where the model posterior is at its minimum.</p>
 <div class="cell" data-execution_count="10">
 <details>
 <summary>Code</summary>
@@ -765,31 +778,82 @@ div.csl-indent {
 <summary>Code</summary>
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>var_alpha, var_beta <span class="op">=</span> <span class="fl">0.2</span>, <span class="fl">0.3</span> </span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>mu_alpha, mu_beta <span class="op">=</span> <span class="fl">7.8547</span>, <span class="fl">1.4062</span></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>alpha_sample <span class="op">=</span> torch.FloatTensor(<span class="dv">10</span>).normal_(mu_alpha, var_alpha)</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>beta_sample <span class="op">=</span> torch.FloatTensor(<span class="dv">10</span>).normal_(mu_beta, var_beta)</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>samples <span class="op">=</span> torch.stack([alpha_sample, beta_sample], <span class="dv">1</span>)</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>fig <span class="op">=</span> plt.figure() </span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> alpha, beta <span class="kw">in</span> <span class="bu">zip</span>(alpha_sample, beta_sample): </span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  plt.plot(x_range, model_f(x_range, alpha.item(), beta.item()), label<span class="op">=</span><span class="vs">r'$\alpha$=</span><span class="sc">{alpha:.4}</span><span class="vs">; $\beta$=</span><span class="sc">{beta:.4}</span><span class="vs">'</span>.<span class="bu">format</span>(alpha<span class="op">=</span>alpha, beta<span class="op">=</span>beta), color<span class="op">=</span><span class="st">'salmon'</span>)</span>
-<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>plt.scatter(x_range, experimental_result, zorder<span class="op">=</span><span class="dv">20</span>, color<span class="op">=</span><span class="st">'blue'</span>)</span>
-<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>alpha_sample <span class="op">=</span> torch.FloatTensor(<span class="dv">40</span>).normal_(mu_alpha, var_alpha)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>beta_sample <span class="op">=</span> torch.FloatTensor(<span class="dv">40</span>).normal_(mu_beta, var_beta)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>samples <span class="op">=</span> torch.stack([alpha_sample, beta_sample], <span class="dv">1</span>)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>fig <span class="op">=</span> plt.figure() </span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> alpha, beta <span class="kw">in</span> <span class="bu">zip</span>(alpha_sample, beta_sample): </span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>  plt.plot(x_range, model_f(x_range, alpha.item(), beta.item()), label<span class="op">=</span><span class="vs">r'$\alpha$=</span><span class="sc">{alpha:.4}</span><span class="vs">; $\beta$=</span><span class="sc">{beta:.4}</span><span class="vs">'</span>.<span class="bu">format</span>(alpha<span class="op">=</span>alpha, beta<span class="op">=</span>beta), color<span class="op">=</span><span class="st">'salmon'</span>)</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>plt.scatter(x_range, experimental_result, zorder<span class="op">=</span><span class="dv">20</span>, color<span class="op">=</span><span class="st">'blue'</span>)</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">'Passing the MCMC determined posteriors back to the model for inverse UQ'</span>)</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="vs">r'$f(x, \alpha, \beta)$'</span>)</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">'x'</span>)</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="bo_example_files/figure-html/cell-12-output-1.png" width="569" height="411" class="figure-img"></p>
-<figcaption class="figure-caption">Inverse uncertainty propogated back to the model</figcaption>
+<p><img src="bo_example_files/figure-html/cell-12-output-1.png" width="629" height="449" class="figure-img"></p>
+<figcaption class="figure-caption">Inverse uncertainty propogated back to the model by using the MCMC determined distributions. One could take the expectation over these distributions, i.e., mean and standard deviation for a single line and shaded region.</figcaption>
 </figure>
 </div>
 </div>
 </div>
-<p>Great! We now know our optimal values, how certain we are about them, and how that uncertainty affects the model output.</p>
+<p>Great! For a single experimental result, we now know our optimal values, how certain we are about them, and how that uncertainty affects the model output.</p>
 </section>
-<section id="references" class="level2" data-number="2.7">
-<h2 data-number="2.7" class="anchored" data-anchor-id="references"><span class="header-section-number">2.7</span> References</h2>
+<section id="scaling-to-multiple-experiments" class="level2" data-number="2.7">
+<h2 data-number="2.7" class="anchored" data-anchor-id="scaling-to-multiple-experiments"><span class="header-section-number">2.7</span> Scaling to multiple experiments</h2>
+<p>Imagine that we had the following experimental results from two different sets of experiments with similar configurations respectively (e.g., Deuterium seeded vs Tritium seeded):</p>
+<div class="cell" data-execution_count="12">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># example D experiments  </span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="co"># example T experiments </span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>alpha_d <span class="op">=</span> np.random.randn(<span class="dv">10</span>) <span class="op">+</span> <span class="dv">4</span> </span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>beta_d <span class="op">=</span> <span class="fl">0.6</span><span class="op">*</span>np.random.randn(<span class="dv">10</span>) <span class="op">-</span> <span class="dv">2</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>theta_d <span class="op">=</span> np.stack([alpha_d, beta_d], <span class="dv">1</span>)</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>alpha_t <span class="op">=</span> np.random.randn(<span class="dv">10</span>) <span class="op">-</span> <span class="dv">3</span> </span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>beta_t <span class="op">=</span> <span class="fl">1.5</span><span class="op">*</span>np.random.randn(<span class="dv">10</span>) <span class="op">-</span> <span class="dv">4</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>theta_t <span class="op">=</span> np.stack([alpha_t, beta_t], <span class="dv">1</span>)</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>tiled_xrange <span class="op">=</span> np.tile(x_range, (<span class="dv">10</span>, <span class="dv">1</span>))</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>experimental_results_t <span class="op">=</span> model_f(tiled_xrange, theta_t[:, <span class="dv">0</span>:<span class="dv">1</span>], theta_t[:, <span class="dv">1</span>:]) <span class="op">+</span> <span class="fl">0.4</span><span class="op">*</span>np.random.randn(<span class="dv">10</span>, <span class="dv">25</span>)</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>experimental_results_d <span class="op">=</span> model_f(tiled_xrange, theta_d[:, <span class="dv">0</span>:<span class="dv">1</span>], theta_d[:, <span class="dv">1</span>:]) <span class="op">+</span> <span class="fl">0.4</span><span class="op">*</span>np.random.randn(<span class="dv">10</span>, <span class="dv">25</span>)</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>fig <span class="op">=</span> plt.figure(figsize<span class="op">=</span>(<span class="dv">5</span>, <span class="dv">5</span>)) </span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>plt.plot(tiled_xrange.T, experimental_results_t.T, color<span class="op">=</span><span class="st">'blue'</span>)</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>plt.plot(tiled_xrange.T, experimental_results_d.T, color<span class="op">=</span><span class="st">'salmon'</span>)</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="bo_example_files/figure-html/cell-13-output-1.png" width="441" height="411" class="figure-img"></p>
+<figcaption class="figure-caption">Two sets of experiments.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>We would have the option of the following choices of implementation:</p>
+<ul>
+<li>try to find a single set of <span class="math inline">\(\theta\)</span> that best fit all of a given set of experiments (e.g., <span class="math inline">\(\theta\)</span> for blue lines above)
+<ul>
+<li>This will modify our discrepency function as being the average discrepncy across the given experiments</li>
+</ul></li>
+<li>find <span class="math inline">\(\theta\)</span> for each experiment, and consider the distribution of <span class="math inline">\(\theta\)</span> for each set</li>
+</ul>
+<p><strong>Note</strong>: This assumes we know <em>a priori</em> about the different experiments.</p>
+<p>But, I am open to better ideas.</p>
+</section>
+<section id="references" class="level2" data-number="2.8">
+<h2 data-number="2.8" class="anchored" data-anchor-id="references"><span class="header-section-number">2.8</span> References</h2>
 
 
 <div id="refs" class="references csl-bib-body hanging-indent" role="list">
