@@ -455,10 +455,13 @@ where ${\text{hyper}^1, \dots, \text{hyper}^m}$ are samples drawn from  $p(\text
 The full BO algorithm looks like the following: 
 ![Bo Algorithm](./figures/bo_algorithm.png)
 
-Lets show the evolution in practice. 
+Lets show the evolution in practice. We create 50 different sets of 8 'initial data' points (${(\alpha_i, \beta_i), R_i}$), with $\alpha, \beta$ sampled from  uniform distributions and pass them through the model to get $R_i$. We then perform the BO algorithm above, for 30 acquisition iterations. 
 
-![MLE Bo implementation](./figures/MLE_BO_FULL.png)
+![BO implementation for 50 trials of 30 aquisition iterations with the GPR fitted via MLE. Each iteration samples 1 new point. The median best optimal value insofar is plotted, with the 10-90 percent quantiles as error bars.](./figures/MLE_BO_FULL.png)
 
+From the above plot, we can see that the BO system does not always fully converge! Reasons for this may be that i) our aquisition function is not ideal, ii) the MLE estimation of GP hyperparameters fails, iii) the combination of i) and ii) leads the model to find a local minimum and exploit that. 
+
+Regardless, the median of trials do converge to a minimum, which is plotted below. 
 ```{python}
 # optimal value found: tensor(0.0067) tensor([7.8547, 1.4062])
 
@@ -479,14 +482,37 @@ plt.show()
 We can recover the optimal $\theta$ determined by the BO algorithm, as well as our uncertainty regarding it. This is our _forward_ uncertainty. 
 To do this, we take the fitted model (either by MLE or margnilzation over hyperparameters), and perform MCMC integration over the posterior, w.r.t input parameters, i.e., we sample $\theta$ around where the model thinks the discrepency is close to 0.0. 
 
-![MCMC over posterior](./figures/MCMC_INVERSE_UQ.png)
+```{python}
+#| eval: false 
+# using a fitted model 
+likelihood, model = mll.likelihood, mll.model 
+likelihood.eval()
+model.eval() 
 
-Additionally, we can use this to gather _inverse_ uncertainty about how the model is affected due to changes in $\theta$. 
+from pyro.infer import NUTS, MCMC 
+import pyro 
+import pyro.distributions as dist
+import arviz as az 
+def mcmc_model(): 
+   alpha = pyro.sample('alpha', dist.Normal(0, 5))
+   beta = pyro.sample('beta', dist.Normal(0, 5))
+   inputs = torch.stack([alpha, beta], 0).unsqueeze(0)
+   model_output = likelihood(model(inputs))
+   return pyro.sample('y', dist.Normal(model_output.mean, model_output.variance), obs=torch.tensor(0.0))
+nuts_kernel = NUTS(mcmc_model)
+mcmc = MCMC(nuts_kernel, num_samples=500, num_chains=1)
+mcmc.run()
+```
+
+![MCMC over posterior yields us the uncertainty of our optimal parameters w.r.t to the BO task.](./figures/MCMC_INVERSE_UQ.png)
+
+The mean of the distribution should represent our optimal value(s), the spread our confidence that it is the optimal value(s). 
+Additionally, we can use this distribution to gather _inverse_ uncertainty about how the model is affected due to changes in $\theta$. 
 
 We can use the sample from the distributions determined from the MCMC sampling and and pass those through the model. 
 
 ```{python}
-
+#| fig-cap: "Inverse uncertainty propogated back to the model"
 var_alpha, var_beta = 0.2, 0.3 
 mu_alpha, mu_beta = 7.8547, 1.4062
 alpha_sample = torch.FloatTensor(10).normal_(mu_alpha, var_alpha)
@@ -495,17 +521,22 @@ samples = torch.stack([alpha_sample, beta_sample], 1)
 
 fig = plt.figure() 
 
-plt.scatter(x_range, experimental_result)
-
 for alpha, beta in zip(alpha_sample, beta_sample): 
-  plt.plot(x_range, model_f(x_range, alpha.item(), beta.item()), label=r'$\alpha$={alpha:.4}; $\beta$={beta:.4}'.format(alpha=alpha, beta=beta))
+  plt.plot(x_range, model_f(x_range, alpha.item(), beta.item()), label=r'$\alpha$={alpha:.4}; $\beta$={beta:.4}'.format(alpha=alpha, beta=beta), color='salmon')
+
+plt.scatter(x_range, experimental_result, zorder=20, color='blue')
 plt.show()
 
 ```
 
+Great! We now know our optimal values, how certain we are about them, and how that uncertainty affects the model output. 
+
+## References
+
+
 ```{python}
 #| eval: false
-#| echo: true
+#| echo: false
 likelihood = gpytorch.likelihoods.GaussianLikelihood()
 model = ExactGPModel(train_x, train_y, likelihood)
 mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
@@ -549,6 +580,7 @@ with model:
 
 ```{python}
 #| eval: false
+#| echo: false
 likelihood = gpytorch.likelihoods.GaussianLikelihood()
 model = ExactGPModel(train_x, train_y, likelihood)
 # mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
@@ -583,10 +615,9 @@ plot_evaluation(model, likelihood)
 
 
 
-## References
-
 ```{python}
 #| eval: false
+#| echo: false
 likelihood = gpytorch.likelihoods.GaussianLikelihood()
 model = ExactGPModel(train_x, train_y, likelihood)
 # mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
@@ -621,6 +652,7 @@ plot_evaluation(model, likelihood)
 
 ```{python}
 #| eval: false
+#| echo: false
 # Set into eval mode
 model.eval()
 likelihood.eval()
