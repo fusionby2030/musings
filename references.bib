@@ -14,6 +14,63 @@
    url = {https://doi.org/10.1088/1361-6587/acb011},
    year = {2023},
 }
+@misc{snoek2012practical,
+      title={Practical Bayesian Optimization of Machine Learning Algorithms}, 
+      author={Jasper Snoek and Hugo Larochelle and Ryan P. Adams},
+      year={2012},
+      eprint={1206.2944},
+      archivePrefix={arXiv},
+      primaryClass={stat.ML}
+}
+@inproceedings{Rasmussen1995,
+ author = {Williams, Christopher and Rasmussen, Carl},
+ booktitle = {Advances in Neural Information Processing Systems},
+ editor = {D. Touretzky and M.C. Mozer and M. Hasselmo},
+ pages = {},
+ publisher = {MIT Press},
+ title = {Gaussian Processes for Regression},
+ url = {https://proceedings.neurips.cc/paper_files/paper/1995/file/7cce53cf90577442771720a370c3c723-Paper.pdf},
+ volume = {8},
+ year = {1995}
+}
+@article{Wu2018,
+title = {Inverse uncertainty quantification using the modular Bayesian approach based on Gaussian process, Part 1: Theory},
+journal = {Nuclear Engineering and Design},
+volume = {335},
+pages = {339-355},
+year = {2018},
+issn = {0029-5493},
+doi = {https://doi.org/10.1016/j.nucengdes.2018.06.004},
+url = {https://www.sciencedirect.com/science/article/pii/S0029549318306423},
+author = {Xu Wu and Tomasz Kozlowski and Hadi Meidani and Koroush Shirvan},
+keywords = {Inverse uncertainty quantification, Bayesian calibration, Gaussian process, Modular Bayesian, Model discrepancy},
+}
+
+@book{RasmussenW06,
+  author       = {Carl Edward Rasmussen and
+                  Christopher K. I. Williams},
+  title        = {Gaussian processes for machine learning},
+  series       = {Adaptive computation and machine learning},
+  publisher    = {{MIT} Press},
+  year         = {2006},
+  url          = {https://www.worldcat.org/oclc/61285753},
+  isbn         = {026218253X},
+  timestamp    = {Fri, 17 Jul 2020 16:12:42 +0200},
+  biburl       = {https://dblp.org/rec/books/lib/RasmussenW06.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
+}
+@article{death2021,
+   abstract = {Bayesian optimisation (BO) uses probabilistic surrogate models-usually Gaussian processes (GPs)-for the optimisation of expensive black-box functions. At each BO iteration, the GP hyperparameters are fit to previously-evaluated data by maximising the marginal likelihood. However, this fails to account for uncertainty in the hy-perparameters themselves, leading to overconfident model predictions. This uncertainty can be accounted for by taking the Bayesian approach of marginalising out the model hyperparameters. We investigate whether a fully-Bayesian treatment of the Gaussian process hyperparameters in BO (FBBO) leads to improved optimisation performance. Since an analytic approach is intractable, we compare FBBO using three approximate inference schemes to the maximum likelihood approach, using the Expected Improvement (EI) and Upper Confidence Bound (UCB) acquisition functions paired with ARD and isotropic Matérn kernels, across 15 well-known benchmark problems for 4 observational noise settings. FBBO using EI with an ARD kernel leads to the best performance in the noise-free setting, with much less difference between combinations of BO components when the noise is increased. FBBO leads to over-exploration with UCB, but is not detrimental with EI. Therefore, we recommend that FBBO using EI with an ARD kernel as the default choice for BO. CCS CONCEPTS • Theory of computation → Gaussian processes; Mathematical optimization; • Mathematics of computing → Bayesian computation.},
+   author = {George De Ath and Richard M Everson and Jonathan E Fieldsend and Jonathan E 2021 Fieldsend},
+   doi = {10.1145/3449726.3463164},
+   isbn = {2105.00894v1},
+   keywords = {Ap-proximate inference,Bayesian optimisation,Gaussian process,Surrogate modelling},
+   title = {How Bayesian Should Bayesian Optimisation Be?},
+   url = {https://doi.org/10.1145/3449726.3463164.},
+   year = {2021},
+}
+
+
 @phdthesis{Stefanikova2020,
    author = {Estera Stefanikova},
    isbn = {9789178735211},
