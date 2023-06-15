@@ -1,0 +1,14 @@
+---
+title: "General Approximations"
+
+execute: 
+  echo: false
+  warning: false
+---
+
+
+## Boundary & Shape
+
+
+### Volume
+

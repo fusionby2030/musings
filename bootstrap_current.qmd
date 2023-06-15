@@ -46,11 +46,11 @@ Due to the drift velocity, Particles with $v_{||} < v_\perp$ (parallel/perpendic
 
 ::: {#fig-banana-simulation layout-ncol=3 layout-valign="center"} 
 
-![Toroidal view](./local_figures/Banana_orbits_with_notations.jpg){#fig-full}
+![Toroidal view](./figures/Banana_orbits_with_notations.jpg){#fig-full}
 
-![Partial cross section](./local_figures/banana_orbits_2.png){#fig-partial-cross-section}
+![Partial cross section](./figures/banana_orbits_2.png){#fig-partial-cross-section}
 
-![Cross section](./local_figures/banana_orbit_3.png){#fig-cross-section}
+![Cross section](./figures/banana_orbit_3.png){#fig-cross-section}
 
 The banana particle orbits as taken from [Alfs lecture 21](https://www.youtube.com/watch?v=1fCkCHMNgKw). The reflection direction is determined by the drift velocity.
 :::

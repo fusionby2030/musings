@@ -49,7 +49,7 @@ div.csl-indent {
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
-<link href="./a_hully_hull.html" rel="next">
+<link href="./bo_example.html" rel="next">
 <link href="./index.html" rel="prev">
 <script src="site_libs/quarto-html/quarto.js"></script>
 <script src="site_libs/quarto-html/popper.min.js"></script>
@@ -148,7 +148,7 @@ div.csl-indent {
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-expanded="true">
- <span class="menu-text">ML</span></a>
+ <span class="menu-text">Bayes</span></a>
           <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
@@ -156,8 +156,8 @@ div.csl-indent {
       <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./a_hully_hull.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Watermelons without juice and the search for UQ</span></span></a>
+  <a href="./bo_example.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Bayesian Optimization Example for Model Validation</span></span></a>
   </div>
 </li>
       </ul>
@@ -207,18 +207,18 @@ div.csl-indent {
 <p>For a toroidal plasma with twisted helical field lines, this is not the case, which is why transport in toroidal plasma is refered to as <em>neoclassical transport</em>. An example of such a change in transport is <em>banana transport</em>.</p>
 <section id="gradient-drift" class="level3" data-number="1.0.1">
 <h3 data-number="1.0.1" class="anchored" data-anchor-id="gradient-drift"><span class="header-section-number">1.0.1</span> Gradient drift</h3>
-<p>The magnetic field strength is not toroidally uniform; it is strongest closest to the donut hole, the high field side (HFS), gradually getting weaker radially outwards the edge, the low field side (LFS) (see <a href="#fig-full">Figure&nbsp;<span class="quarto-unresolved-ref">fig-full</span></a>). The drift in particle velocity due to the gradient of the <em>toroidal</em> magnetic field <span id="eq-drift"><span class="math display">\[v_D^{\nabla \vec{B}} = - \frac{W_\perp}{q} \frac{\nabla_T \vec{B} \times \vec{B}}{B^3} \tag{1.1}\]</span></span></p>
+<p>The magnetic field strength is not toroidally uniform; it is strongest closest to the donut hole, the high field side (HFS), gradually getting weaker radially outwards the edge, the low field side (LFS) (see <a href="#fig-full">Figure&nbsp;<span>1.1 (a)</span></a>). The drift in particle velocity due to the gradient of the <em>toroidal</em> magnetic field <span id="eq-drift"><span class="math display">\[v_D^{\nabla \vec{B}} = - \frac{W_\perp}{q} \frac{\nabla_T \vec{B} \times \vec{B}}{B^3} \tag{1.1}\]</span></span></p>
 </section>
 <section id="banana-regime" class="level3" data-number="1.0.2">
 <h3 data-number="1.0.2" class="anchored" data-anchor-id="banana-regime"><span class="header-section-number">1.0.2</span> Banana regime</h3>
-<p>Due to the drift velocity, Particles with <span class="math inline">\(v_{||} &lt; v_\perp\)</span> (parallel/perpendicular to magnetic field lines) can be reflected from LFS to HFS, similar to the <a href="https://en.wikipedia.org/wiki/Magnetic_mirror">magnetic mirror</a>. This has the result that no full poloidal turn is possible (<a href="#fig-banana-simulation">Figure&nbsp;<span class="quarto-unresolved-ref">fig-banana-simulation</span></a>) and the particles are <em>trapped</em> in the LFS.</p>
+<p>Due to the drift velocity, Particles with <span class="math inline">\(v_{||} &lt; v_\perp\)</span> (parallel/perpendicular to magnetic field lines) can be reflected from LFS to HFS, similar to the <a href="https://en.wikipedia.org/wiki/Magnetic_mirror">magnetic mirror</a>. This has the result that no full poloidal turn is possible (<a href="#fig-banana-simulation">Figure&nbsp;<span>1.1</span></a>) and the particles are <em>trapped</em> in the LFS.</p>
 <div id="fig-banana-simulation" class="quarto-layout-panel">
 <figure class="figure">
 <div class="quarto-layout-row quarto-layout-valign-center">
 <div class="quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 33.3%;justify-content: center;">
 <div id="fig-full" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure">
-<p><img src="./local_figures/Banana_orbits_with_notations.jpg" class="img-fluid figure-img" data-ref-parent="fig-banana-simulation"></p>
+<p><img src="./figures/Banana_orbits_with_notations.jpg" class="img-fluid figure-img" data-ref-parent="fig-banana-simulation"></p>
 <figcaption class="figure-caption">(a) Toroidal view</figcaption>
 </figure>
 </div>
@@ -226,7 +226,7 @@ div.csl-indent {
 <div class="quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 33.3%;justify-content: center;">
 <div id="fig-partial-cross-section" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure">
-<p><img src="./local_figures/banana_orbits_2.png" class="img-fluid figure-img" data-ref-parent="fig-banana-simulation"></p>
+<p><img src="./figures/banana_orbits_2.png" class="img-fluid figure-img" data-ref-parent="fig-banana-simulation"></p>
 <figcaption class="figure-caption">(b) Partial cross section</figcaption>
 </figure>
 </div>
@@ -234,7 +234,7 @@ div.csl-indent {
 <div class="quarto-layout-cell quarto-layout-cell-subref" style="flex-basis: 33.3%;justify-content: center;">
 <div id="fig-cross-section" class="quarto-figure quarto-figure-center anchored">
 <figure class="figure">
-<p><img src="./local_figures/banana_orbit_3.png" class="img-fluid figure-img" data-ref-parent="fig-banana-simulation"></p>
+<p><img src="./figures/banana_orbit_3.png" class="img-fluid figure-img" data-ref-parent="fig-banana-simulation"></p>
 <figcaption class="figure-caption">(c) Cross section</figcaption>
 </figure>
 </div>
@@ -250,7 +250,7 @@ div.csl-indent {
 <p>Friction related to transport from particles in banana orbit (collisions between trapped and non-trapped particles) leads to a diffusion driven current, otherwise known as the bootstrap current. This is different than the conventional current from the central solenoid.</p>
 <p>The current is brought on by the change in the <span class="math inline">\(\nabla_T \vec{B} \times \vec{B}\)</span> component from LFS to HFS, as the <span class="math inline">\(B_{pol}\)</span> is rotating around the outer plamsa, and <span class="math inline">\(\nabla \vec{B}\)</span> constant pointing inwards from the drift. This corresponds to the following additional drifts:</p>
 <ul>
-<li>For particles near the LFS, i.e., <span class="math inline">\(r &gt; R\)</span>, we will get a drift (with charge dependence due to eq. <a href="#eq-drift">Equation&nbsp;<span class="quarto-unresolved-ref">eq-drift</span></a>)
+<li>For particles near the LFS, i.e., <span class="math inline">\(r &gt; R\)</span>, we will get a drift (with charge dependence due to eq. <a href="#eq-drift">Equation&nbsp;<span>1.1</span></a>)
 <ul>
 <li>ions: in the direction of the current</li>
 <li>electrons: opposite direction of current</li>
@@ -561,8 +561,8 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./a_hully_hull.html" class="pagination-link">
-        <span class="nav-page-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Watermelons without juice and the search for UQ</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="./bo_example.html" class="pagination-link">
+        <span class="nav-page-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Bayesian Optimization Example for Model Validation</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>

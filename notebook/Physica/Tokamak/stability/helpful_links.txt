@@ -1,0 +1,9 @@
+- Equilibrium codes: 
+	- DESC: https://github.com/PlasmaControl/DESC
+	- VMEC: https://princetonuniversity.github.io/STELLOPT/VMEC
+		- compile instructions: https://princetonuniversity.github.io/STELLOPT/VMEC
+	- Wistell: https://gitlab.com/wistell
+	- PARVMEC: https://github.com/ORNL-Fusion/PARVMEC
+- OMFIT: 
+	- GPEC: https://omfit.io/modules/mod_GPEC.html
+ 
