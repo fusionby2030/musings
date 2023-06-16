@@ -1,0 +1,37 @@
+---
+title: "MHD, Or WTF"
+---
+
+##### Notation 
+
+I use the folowing notation for units: 
+
+- $M$: Mass (typically kg)
+- $L$: Length (typically m)
+- $T$: Time (typically s)
+
+
+When introducing new constants or terms, the units will follow. For example, the gravitational constant, $G \left[ \frac{L^3}{M T^2} \right]$, and the gravitationall accleration on earth, $\vec{g} \left[ \frac{L}{T^2}\right]$.
+
+### What does it mean to be in equilibrium {.unnumbered}
+
+We can call a column of water _at rest_, or in _equilibrium_, if the force of gravity on every drop of water (collection of molecules) is equivilant to the forces exerted on the drops' surface. 
+
+For a drop with density, $\rho \left[ \frac{M}{L^3} \right]$, the gravitational force per unit volume is then $\rho \vec{g} \left[\frac{M}{L^2T^2}\right]$.[^A]
+
+For the surface of the drop, the force acting per unit area is the pressure, $p [M/LT^2]$. As mentioned earlier, the drop has a volume, thus the average force per unit volume inside the drop is the gradient of the pressure (in the direction normal to the surface): $\nabla p$. 
+- What? Draw a picture?  
+
+[^A]: which is interesting in it's own right as we actually have units of area??
+- Exerting on the surface? 
+
+## Introduction
+For some reason, we always start at the momentum balance for a plasma under MHD equilibrium. 
+$$\nabla p = \vec{j} \times  \vec{B}$${#eq-mhd-equilibrium}
+
+- What does '_under MHD equilibrium_' mean? 
+- Where is momentum in this equation? 
+- What is this gradient with respect to? 
+    - Radial, but which radial? Are we talking exclusively about tokamaks already? 
+- What is balance refering to? 
+- 
